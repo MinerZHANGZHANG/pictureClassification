@@ -1,0 +1,36 @@
+﻿<Window x:Class="ImageClassification.TrainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ImageClassification"
+        mc:Ignorable="d"
+        Title="TrainWindow" Height="500" Width="800">
+    <Grid>
+        <Image x:Name="ImageShow" HorizontalAlignment="Left" Height="316" Margin="38,43,0,0" VerticalAlignment="Top" Width="466"/>
+
+        <Label x:Name="InputPath" Content="(图片文件夹输入路径)"   HorizontalAlignment="Left" Margin="89,10,0,0" VerticalAlignment="Top" Height="30" Width="469" FontSize="14"/>
+        <Button x:Name="ImageInputPath" Content="输入路径" Click="ImageInputPath_Click"  HorizontalAlignment="Left" Margin="10,15,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="25" Width="60"/>
+
+        <Label x:Name="OutputPath" Content="(模型训练结果输出路径)"   HorizontalAlignment="Left" Margin="89,367,0,0" VerticalAlignment="Top" Height="30" Width="547" FontSize="14"/>
+        <Button x:Name="ImageOutputPath" Content="输出路径" Click="ImageOutputPath_Click"  HorizontalAlignment="Left" Margin="10,371,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="25" Width="60"/>
+
+        <Button x:Name="TagAdd" Click="TagAdd_Click" Content="添加Tag" HorizontalAlignment="Left" Margin="656,314,0,0" VerticalAlignment="Top"/>
+        <TextBox x:Name="TagInput" HorizontalAlignment="Left" Margin="713,315,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="87"/>
+
+        <Button x:Name="ModelSave" Click="ModelSave_Click"  Content="保存模型" HorizontalAlignment="Left" Margin="656,363,0,0" VerticalAlignment="Top"/>
+        <TextBox x:Name="ModelName" HorizontalAlignment="Left" Margin="713,365,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="87"/>
+
+        <!--<Label x:Name="CsvName" Content="未检测到标签csv文件"   HorizontalAlignment="Left" Margin="647,3,0,0" VerticalAlignment="Top" Height="25" Width="127" FontSize="14"/>-->
+        <Button x:Name="OpenCsv" Content="打开标签文件" Click="OpenCsv_Click"  HorizontalAlignment="Left" Margin="578,3,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="26" Width="78"/>
+
+        <Button x:Name="AutoTrain"  Click="AutoTrain_Click" Content="自动训练" HorizontalAlignment="Left" Margin="655,408,0,0" VerticalAlignment="Top"/>
+        <TextBox x:Name="TrainTime" HorizontalAlignment="Left" Text="最大训练时间" Margin="713,408,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="87"/>
+
+
+        <ListBox x:Name="TagListBox" Margin="656,25,0,126" >
+
+        </ListBox>
+        <Label x:Name="Count" Content="0/0" HorizontalAlignment="Left" Margin="542,311,0,0" VerticalAlignment="Top" Width="81"/>
+    </Grid>
+</Window>
