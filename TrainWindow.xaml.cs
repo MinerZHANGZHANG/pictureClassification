@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ImageClassification.Dialog;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -7,6 +8,8 @@ using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
+//using System.Windows.Shapes;
+using static ImageClassification.ImageSolution;
 
 namespace ImageClassification
 {
@@ -26,6 +29,8 @@ namespace ImageClassification
     /// </summary>
     public partial class TrainWindow : Window
     {
+        public ImageNetSetting imageNetSetting;
+
         //图片文件夹输入路径
         protected string ImageInputDirPath;
         //模型输出路径
@@ -38,6 +43,7 @@ namespace ImageClassification
         //标签列表
         private List<string> tagsList=new();
 
+
         /// <summary>
         /// 窗体初始化函数
         /// </summary>
@@ -46,6 +52,8 @@ namespace ImageClassification
             InitializeComponent();
             //添加自定义鼠标点击事件到放置图片标签的ListBox
             TagListBox.AddHandler(System.Windows.Controls.ListBox.MouseLeftButtonUpEvent, new MouseButtonEventHandler(TagListBox_PreviewMouseRightButtonUp), true);
+
+            imageNetSetting = DefaultImageSetting;
         }
 
         
@@ -53,7 +61,7 @@ namespace ImageClassification
         /// 添加图片数据到csv文件
         /// </summary>
         /// <param name="imageTagData">图片数据(标签和图片路径)</param>
-        private void AddToCSV(ImageTagData imageTagData)
+        public void AddToCSV(ImageTagData imageTagData)
         {
             if (string.IsNullOrEmpty(ImageInputDirPath))
             {
@@ -127,8 +135,12 @@ namespace ImageClassification
 
                 string csv_path = Path.Combine(ImagesDir.Parent.FullName, $"{ImagesDir.Name}-ImagesTag.csv");
                 if (File.Exists(csv_path))
-                {                  
-                    MessageBoxResult boxResult= System.Windows.MessageBox.Show($"检测到已经添加标签文件，是否重置该文件",caption:"是否重置文件",MessageBoxButton.YesNo);
+                {
+                    //统计文件中的记录数量
+                    string[]? lines = File.ReadAllLines(csv_path);
+                    int count = lines.Length;
+
+                    MessageBoxResult boxResult= System.Windows.MessageBox.Show($"检测到已经添加标签文件，\n其中包含{count}条记录\n是否重置该文件",caption:"是否重置文件",MessageBoxButton.YesNo);
                     if (boxResult == MessageBoxResult.Yes)
                     {
                         File.Delete(csv_path);
@@ -195,10 +207,11 @@ namespace ImageClassification
             }
             else if (ModelName.Text == null)
             {
+
             }
             else
             {
-                ImageSolution.TrainAndSaveModel(csvTagPath, ImageInputDirPath, ModelOutputDirPath, ModelName.Text);
+                ImageSolution.TrainAndSaveModel(csvTagPath, ImageInputDirPath, ModelOutputDirPath, imageNetSetting, ModelName.Text);
             }
                 
         }
@@ -255,8 +268,8 @@ namespace ImageClassification
             }
             else if(uint.TryParse(TrainTime.Text,out uint result))
             {
-                System.Windows.MessageBox.Show("自动多次训练还存在问题");
-                ImageSolution.AutoTrainAndSave(csvTagPath, ImageInputDirPath, ModelOutputDirPath, result);
+                System.Windows.MessageBox.Show("自动多次训练还存在问题");              
+                //ImageSolution.AutoTrainAndSave(csvTagPath, ImageInputDirPath, ModelOutputDirPath, result, ImageSolution.DefaultImageSetting);
             }
             else
             {
@@ -264,25 +277,53 @@ namespace ImageClassification
             }
         }
         
-        /// <summary>
-        /// 按钮事件，打开训练集Csv文件
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void OpenCsv_Click(object sender, RoutedEventArgs e)
+        ///// <summary>
+        ///// 按钮事件，打开训练集Csv文件
+        ///// </summary>
+        ///// <param name="sender"></param>
+        ///// <param name="e"></param>
+        //private void OpenCsv_Click(object sender, RoutedEventArgs e)
+        //{
+        //    if (string.IsNullOrEmpty(ImageInputDirPath))
+        //    {
+        //        return;
+        //    }
+        //    DirectoryInfo directoryInfo = new DirectoryInfo(ImageInputDirPath);
+        //    string csvTagPath = Path.Combine(directoryInfo.Parent.FullName, $"{directoryInfo.Name}-ImagesTag.csv");
+        //    if (File.Exists(csvTagPath))
+        //    {
+        //        System.Diagnostics.Process csvViewProcess = new System.Diagnostics.Process();
+        //        csvViewProcess.StartInfo.FileName= csvTagPath;
+        //        csvViewProcess.StartInfo.CreateNoWindow = true;
+        //        csvViewProcess.StartInfo.UseShellExecute= false;
+        //        csvViewProcess.Start();
+        //        csvViewProcess.WaitForExit();
+        //    }
+        //}
+
+        #endregion
+
+        private void ImageSetting_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(ImageInputDirPath))
+            ImageSettingDialog imageSettingDialog = new ImageSettingDialog(this);
+            bool? result= imageSettingDialog.ShowDialog();
+            if (result == true) 
             {
-                return;
-            }
-            DirectoryInfo directoryInfo = new DirectoryInfo(ImageInputDirPath);
-            string csvTagPath = Path.Combine(directoryInfo.Parent.FullName, $"{directoryInfo.Name}-ImagesTag.csv");
-            if (File.Exists(csvTagPath))
-            {
-                
+                System.Windows.MessageBox.Show($"已重新设置图片处理属性为:\n高度:{imageNetSetting.imageHeight}" +
+                $"\n宽度:{imageNetSetting.imageWidth}\n颜色值偏移量:{imageNetSetting.mean}\n颜色值缩放量:{imageNetSetting.scale}");
             }
         }
 
-        #endregion
+        private void ImportImages_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(ImageInputDirPath))
+            {
+                System.Windows.MessageBox.Show("需要先选择导入训练图片的文件夹");
+                return;
+            }
+
+            TagSelectDialog tagSelectDialog = new TagSelectDialog(this,ImageInputDirPath);
+            bool? result= tagSelectDialog.ShowDialog();
+        }
     }
 }

@@ -11,10 +11,11 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using System.Text;
+using static ImageClassification.ImageSolution;
 
 namespace ImageClassification
 {
-    internal class ImageSolution
+    public class ImageSolution
     {
         //默认的资源文件夹路径
         static readonly string AssetsFolder = @"D:\Data\程序\ImageClassification\DataSet\ImageClassification";         
@@ -28,16 +29,31 @@ namespace ImageClassification
         /// <summary>
         /// 图片数据
         /// </summary>
-        private struct ImageNetSetting
+        public struct ImageNetSetting
         {
             //宽高
-            public const int imageHeight = 224;
-            public const int imageWidth = 224;
-            //
-            public const float mean = 117;
-            public const float scale = 1;
-            public const bool channelsLast = true;
+            public int imageHeight = 224;
+            public int imageWidth = 224;
+            //颜色值偏移量
+            public float mean = 117;
+            //颜色值缩放量
+            public float scale = 1;
+            //是否交错像素颜色
+            public bool channelsLast = true;
+
+            public ImageNetSetting(int imageHeight, int imageWidth, float mean, float scale, bool channelsLast)
+            {
+                this.imageHeight = imageHeight;
+                this.imageWidth = imageWidth;
+                this.mean = mean;
+                this.scale = scale;
+                this.channelsLast = channelsLast;
+            }
         }
+
+        public static readonly ImageNetSetting DefaultImageSetting=new ImageNetSetting(224,224,117,1,true);
+
+
 
         /// <summary>
         /// 图片训练数据类
@@ -81,8 +97,8 @@ namespace ImageClassification
 
             var pipeline = mLContext.Transforms.Conversion.MapValueToKey(outputColumnName: "LabelTokey", inputColumnName: "Label")
                 .Append(mLContext.Transforms.LoadImages(outputColumnName: "input", imageFolder: TrainDataFolder, inputColumnName: nameof(ImageNetData.ImagePath)))
-                .Append(mLContext.Transforms.ResizeImages(outputColumnName: "input", imageWidth: ImageNetSetting.imageWidth, imageHeight: ImageNetSetting.imageHeight, inputColumnName: "input"))
-                .Append(mLContext.Transforms.ExtractPixels(outputColumnName: "input", interleavePixelColors: ImageNetSetting.channelsLast, offsetImage: ImageNetSetting.mean))
+                .Append(mLContext.Transforms.ResizeImages(outputColumnName: "input", imageWidth: DefaultImageSetting.imageWidth, imageHeight: DefaultImageSetting.imageHeight, inputColumnName: "input"))
+                .Append(mLContext.Transforms.ExtractPixels(outputColumnName: "input", interleavePixelColors: DefaultImageSetting.channelsLast, offsetImage: DefaultImageSetting.mean))
                 .Append(mLContext.Model.LoadTensorFlowModel(inceptionPb).
                     ScoreTensorFlowModel(outputColumnNames: new[] { "softmax2_pre_activation" }, inputColumnNames: new[] { "input" }, addBatchDimensionInput: true))
                 .Append(mLContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy(labelColumnName: "LabelTokey", featureColumnName: "softmax2_pre_activation"))
@@ -280,10 +296,11 @@ namespace ImageClassification
         /// <param name="trainTagPath">训练集标签文件路径</param>
         /// <param name="trainImageFolderPath">训练集图片文件夹路径</param>
         /// <param name="trainModelSavePath">模型保存路径</param>
+        /// <param name="imageNetSetting">图像预处理设置</param>
         /// <param name="trainModelSaveName">模型名称</param>
         /// <param name="seed">种子</param>
         /// <param name="inceptionPbModel">特征提取的TensorFlow模型路径</param>
-        public static void TrainAndSaveModel(string trainTagPath, string trainImageFolderPath, string trainModelSavePath, string trainModelSaveName = "图像分类.zip", int seed=3,string inceptionPbModel = "tensorflow_inception_graph.pb")
+        public static void TrainAndSaveModel(string trainTagPath, string trainImageFolderPath, string trainModelSavePath, ImageNetSetting imageNetSetting,string trainModelSaveName = "图像分类.zip", int seed=1,string inceptionPbModel = "tensorflow_inception_graph.pb")
         {
             //创建机器学习上下文
             MLContext mLContext = new MLContext(seed: seed);
@@ -292,17 +309,17 @@ namespace ImageClassification
             //随机划分训练集和测试集
             var trainTestData = mLContext.Data.TrainTestSplit(fullData, testFraction: 0.1);
             var trainData = trainTestData.TrainSet;
-            var testData = trainTestData.TestSet;
+            var testData = trainTestData.TestSet;           
 
             //模型训练管道
-            //转换值为键
+            //转换值为键https://learn.microsoft.com/zh-cn/dotnet/api/microsoft.ml.imageestimatorscatalog.extractpixels?view=ml-dotnet
             var pipeline = mLContext.Transforms.Conversion.MapValueToKey(outputColumnName: "LabelTokey", inputColumnName: "Label")
                 //加载图片
                 .Append(mLContext.Transforms.LoadImages(outputColumnName: "input", imageFolder: trainImageFolderPath, inputColumnName: nameof(ImageNetData.ImagePath)))
                 //重置图片大小
-                .Append(mLContext.Transforms.ResizeImages(outputColumnName: "input", imageWidth: ImageNetSetting.imageWidth, imageHeight: ImageNetSetting.imageHeight, inputColumnName: "input"))
-                //提取像素信息
-                .Append(mLContext.Transforms.ExtractPixels(outputColumnName: "input", interleavePixelColors: ImageNetSetting.channelsLast, offsetImage: ImageNetSetting.mean))
+                .Append(mLContext.Transforms.ResizeImages(outputColumnName: "input", imageWidth: imageNetSetting.imageWidth, imageHeight: imageNetSetting.imageHeight, inputColumnName: "input"))
+                //将像素提取为数字向量
+                .Append(mLContext.Transforms.ExtractPixels(outputColumnName: "input", interleavePixelColors: imageNetSetting.channelsLast, offsetImage: imageNetSetting.mean,scaleImage:imageNetSetting.scale))
                 //使用tensorFlow的模型分析输出图片特征
                 .Append(mLContext.Model.LoadTensorFlowModel(inceptionPbModel).
                     ScoreTensorFlowModel(outputColumnNames: new[] { "softmax2_pre_activation" }, inputColumnNames: new[] { "input" }, addBatchDimensionInput: true))
@@ -314,17 +331,26 @@ namespace ImageClassification
 
             //使用该管道训练模型
             MessageBox.Show("开始训练模型");
-            ITransformer model = pipeline.Fit(trainData);
-            //将测试数据转换为模型对应的格式
-            var evaData = model.Transform(testData);
-            //测试模型拟合度
-            var metrics = mLContext.MulticlassClassification.Evaluate(evaData, labelColumnName: "LabelTokey", predictedLabelColumnName: "PredictedLabel");
-            //MessageBox.Show($"最高K预测计数{metrics.TopKPredictionCount}\n混淆矩阵维数：{metrics.ConfusionMatrix.Counts}\n损失降低日志{metrics.LogLossReduction}");
-            MessageBox.Show($"测试宏观准确率;{metrics.MacroAccuracy}\n测试微观准确率;{metrics.MicroAccuracy}");
-            //保存模型
-            string path = Path.Combine(trainModelSavePath,$"{trainModelSaveName}MI{metrics.MicroAccuracy:P0}-MA{metrics.MacroAccuracy:P0}.zip");
-            mLContext.Model.Save(model, trainData.Schema, path);
-            MessageBox.Show($"成功训练并保存模型为\n{path}");
+            try
+            {
+                ITransformer model = pipeline.Fit(trainData);
+
+                //将测试数据转换为模型对应的格式
+                var evaData = model.Transform(testData);
+                //测试模型拟合度
+                var metrics = mLContext.MulticlassClassification.Evaluate(evaData, labelColumnName: "LabelTokey", predictedLabelColumnName: "PredictedLabel");
+                //MessageBox.Show($"最高K预测计数{metrics.TopKPredictionCount}\n混淆矩阵维数：{metrics.ConfusionMatrix.Counts}\n损失降低日志{metrics.LogLossReduction}");
+                MessageBox.Show($"测试宏观准确率;{metrics.MacroAccuracy}\n测试微观准确率;{metrics.MicroAccuracy}","训练完成");
+                //保存模型
+                string path = Path.Combine(trainModelSavePath, $"{trainModelSaveName}MI{metrics.MicroAccuracy:P0}-MA{metrics.MacroAccuracy:P0}.zip");
+                mLContext.Model.Save(model, trainData.Schema, path);
+                MessageBox.Show($"成功训练并保存模型为\n{path}");
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show($"训练过程中发生{ex.Message}错误","Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            
             
         }
 
@@ -341,7 +367,7 @@ namespace ImageClassification
         /// <param name="trainModelSaveName"></param>
         /// <param name="seed"></param>
         /// <param name="inceptionPbModel"></param>
-        public static void AutoTrainAndSave(string trainTagPath, string trainImageFolderPath, string trainModelSavePath,uint ExperimentTime, string trainModelSaveName = "图像分类.zip",int seed=1,string inceptionPbModel = "tensorflow_inception_graph.pb")
+        public static void AutoTrainAndSave(string trainTagPath, string trainImageFolderPath, string trainModelSavePath,uint ExperimentTime, ImageNetSetting imageNetSetting, string trainModelSaveName = "图像分类.zip",int seed=1,string inceptionPbModel = "tensorflow_inception_graph.pb")
         {
             MLContext mLContext = new MLContext(seed: seed);
             //获取csv数据集(图片tag和路径),因为用,分隔，所以文件名不能有半角逗号
@@ -351,21 +377,23 @@ namespace ImageClassification
             var trainData = trainTestData.TrainSet;
             var testData = trainTestData.TestSet;
 
-           
+
             //模型训练管道
             //转换值为键
             var pipeline = mLContext.Transforms.Conversion.MapValueToKey(outputColumnName: "LabelTokey", inputColumnName: "Label")
                 //加载图片
                 .Append(mLContext.Transforms.LoadImages(outputColumnName: "input", imageFolder: trainImageFolderPath, inputColumnName: nameof(ImageNetData.ImagePath)))
                 //重置图片大小
-                .Append(mLContext.Transforms.ResizeImages(outputColumnName: "input", imageWidth: ImageNetSetting.imageWidth, imageHeight: ImageNetSetting.imageHeight, inputColumnName: "input"))
+                .Append(mLContext.Transforms.ResizeImages(outputColumnName: "input", imageWidth: imageNetSetting.imageWidth, imageHeight: imageNetSetting.imageHeight, inputColumnName: "input"))
                 //提取像素信息
-                .Append(mLContext.Transforms.ExtractPixels(outputColumnName: "input", interleavePixelColors: ImageNetSetting.channelsLast, offsetImage: ImageNetSetting.mean))
+                .Append(mLContext.Transforms.ExtractPixels(outputColumnName: "input", interleavePixelColors: imageNetSetting.channelsLast, offsetImage: imageNetSetting.mean))
                 //使用tensorFlow的模型分析输出图片特征
                 .Append(mLContext.Model.LoadTensorFlowModel(inceptionPbModel).
                     ScoreTensorFlowModel(outputColumnNames: new[] { "softmax2_pre_activation" }, inputColumnNames: new[] { "input" }, addBatchDimensionInput: true))
                 .Append(mLContext.Auto().MultiClassification(labelColumnName: "LabelTokey", featureColumnName: "softmax2_pre_activation"))
                 .Append(mLContext.Transforms.Conversion.MapKeyToValue("PredictedLabelValue", "PredictedLabel"));
+                
+                
 
 
 

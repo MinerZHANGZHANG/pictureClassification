@@ -1,0 +1,32 @@
+﻿<Window x:Class="ImageClassification.Dialog.TagSelectDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ImageClassification.Dialog"
+        mc:Ignorable="d"
+        Closing="Window_Closing"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Title="批量添加标签" Height="280" Width="400" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Grid>
+        <!--图片选择-->
+        <Button x:Name="SelectImageDir" Click="SelectImageDir_Click" Content="图片文件夹" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Height="25" Width="63"/>
+        <Label x:Name="ImageDirLabel" Content="路径" HorizontalAlignment="Left" Margin="78,10,0,0" VerticalAlignment="Top" Width="312"/>
+        <!--标签选择-->
+        <ComboBox x:Name="TagComboBox" SelectionChanged="TagComboBox_SelectionChanged" HorizontalAlignment="Left" Margin="10,49,0,0" VerticalAlignment="Top" Width="63" Height="25"/>
+        <TextBox x:Name="TagTextBox" Text="图片标签" TextChanged="TagTextBox_TextChanged"  HorizontalAlignment="Left" Margin="78,51,0,0" VerticalAlignment="Top" Width="312"/>
+
+        <!--图片-->
+        <Label Content="该文件夹下的部分图片" HorizontalAlignment="Left" Margin="145,79,0,0" VerticalAlignment="Top" Width="129" Height="23"/>
+        <Image x:Name="ImageShow0" HorizontalAlignment="Left" Height="77" Margin="47,108,0,0" VerticalAlignment="Top" Width="77"/>
+        <Image x:Name="ImageShow1" HorizontalAlignment="Left" Height="77" Margin="158,108,0,0" VerticalAlignment="Top" Width="78"/>
+        <Image x:Name="ImageShow2" HorizontalAlignment="Left" Height="77" Margin="267,108,0,0" VerticalAlignment="Top" Width="77"/>
+
+
+        <!--按钮-->
+        <Button x:Name="OKButton" Click="OKButton_Click" IsDefault="True" FontSize="18" Content="确认" HorizontalAlignment="Left" Margin="33,192,0,0" VerticalAlignment="Top" Height="36" Width="85"/>
+        <Button x:Name="CancelButton" Click="CancelButton_Click" IsCancel="True" FontSize="18" Content="取消" HorizontalAlignment="Left" Margin="280,192,0,0" VerticalAlignment="Top" Height="36" Width="85"/>
+
+    </Grid>
+</Window>

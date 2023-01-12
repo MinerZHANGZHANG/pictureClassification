@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ImageClassification"
         mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
         <Button Content="开始分类" HorizontalAlignment="Left" Margin="641,343,0,0" VerticalAlignment="Top" Click="Button_Click" Height="60" Width="133" FontSize="24"/>
