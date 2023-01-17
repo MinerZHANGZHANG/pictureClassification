@@ -24,14 +24,14 @@ namespace ImageClassification.Dialog
             if(int.TryParse(HeightTextBox.Text,out int height)
                 && int.TryParse(WidthTextBox.Text, out int width)
                 && int.TryParse(ColorOffsetTextBox.Text, out int colorOffset)
-                && int.TryParse(ColorScaleTextBox.Text, out int colorScale))
+                && float.TryParse(ColorScaleTextBox.Text, out float colorScale))
             {
                 parentWindow.imageNetSetting = new ImageSolution.ImageNetSetting(height, width, colorOffset, colorScale, true);
                 DialogResult = true;
             }
             else
             {
-                MessageBox.Show("请输入整数值", "输入异常", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("请输入正确的数值", "输入异常", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             
         }

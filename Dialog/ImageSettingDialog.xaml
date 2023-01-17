@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Title="图片预处理设置(未完善，不建议修改)" Height="187" Width="400">
+        Title="图片预处理设置(未完善，不建议修改)" Height="195" Width="400">
     <Grid Margin="10">
         <Grid.Resources>
             <!-- Default settings for controls -->

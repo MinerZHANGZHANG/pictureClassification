@@ -1,7 +1,7 @@
 ﻿//机器学习库
 using Microsoft.ML;
 using Microsoft.ML.Data;
-using Microsoft.ML.AutoML;
+//using Microsoft.ML.AutoML;
 //基本库
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using System.Text;
-using static ImageClassification.ImageSolution;
 
 namespace ImageClassification
 {
@@ -25,7 +24,9 @@ namespace ImageClassification
         static readonly string TrainTagsPath = Path.Combine(AssetsFolder, "train_tags.tsv");       
         static readonly string imageClassifierZip = Path.Combine(AssetsFolder, "MLModel", "imageClassifier.zip");
         static readonly string inceptionPb = Path.Combine(AssetsFolder, "TensorFlow", "tensorflow_inception_graph.pb");
-
+        
+        //标记文件使用的分隔符
+        public const char fileSplit = ',';
         /// <summary>
         /// 图片数据
         /// </summary>
@@ -305,7 +306,7 @@ namespace ImageClassification
             //创建机器学习上下文
             MLContext mLContext = new MLContext(seed: seed);
             //获取csv数据集(图片tag和路径),因为用,分隔，所以文件名不能有半角逗号
-            var fullData = mLContext.Data.LoadFromTextFile<ImageNetData>(path: trainTagPath, separatorChar: ',', hasHeader: false);
+            var fullData = mLContext.Data.LoadFromTextFile<ImageNetData>(path: trainTagPath, separatorChar: fileSplit, hasHeader: false);
             //随机划分训练集和测试集
             var trainTestData = mLContext.Data.TrainTestSplit(fullData, testFraction: 0.1);
             var trainData = trainTestData.TrainSet;
@@ -348,7 +349,7 @@ namespace ImageClassification
             }
             catch(Exception ex)
             {
-                MessageBox.Show($"训练过程中发生{ex.Message}错误","Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"模型训练过程中发生{ex.Message}错误","Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             
             
@@ -357,78 +358,78 @@ namespace ImageClassification
         #endregion
 
         #region ——自动模型训练函数——
-        /// <summary>
-        /// 自动训练模型(未完成)
-        /// </summary>
-        /// <param name="trainTagPath"></param>
-        /// <param name="trainImageFolderPath"></param>
-        /// <param name="trainModelSavePath"></param>
-        /// <param name="ExperimentTime"></param>
-        /// <param name="trainModelSaveName"></param>
-        /// <param name="seed"></param>
-        /// <param name="inceptionPbModel"></param>
-        public static void AutoTrainAndSave(string trainTagPath, string trainImageFolderPath, string trainModelSavePath,uint ExperimentTime, ImageNetSetting imageNetSetting, string trainModelSaveName = "图像分类.zip",int seed=1,string inceptionPbModel = "tensorflow_inception_graph.pb")
-        {
-            MLContext mLContext = new MLContext(seed: seed);
-            //获取csv数据集(图片tag和路径),因为用,分隔，所以文件名不能有半角逗号
-            var fullData = mLContext.Data.LoadFromTextFile<ImageNetData>(path: trainTagPath, separatorChar: ',', hasHeader: false);
-            //随机划分训练集和测试集
-            var trainTestData = mLContext.Data.TrainTestSplit(fullData, testFraction: 0.1);
-            var trainData = trainTestData.TrainSet;
-            var testData = trainTestData.TestSet;
+        ///// <summary>
+        ///// 自动训练模型(未完成)
+        ///// </summary>
+        ///// <param name="trainTagPath"></param>
+        ///// <param name="trainImageFolderPath"></param>
+        ///// <param name="trainModelSavePath"></param>
+        ///// <param name="ExperimentTime"></param>
+        ///// <param name="trainModelSaveName"></param>
+        ///// <param name="seed"></param>
+        ///// <param name="inceptionPbModel"></param>
+        //public static void AutoTrainAndSave(string trainTagPath, string trainImageFolderPath, string trainModelSavePath,uint ExperimentTime, ImageNetSetting imageNetSetting, string trainModelSaveName = "图像分类.zip",int seed=1,string inceptionPbModel = "tensorflow_inception_graph.pb")
+        //{
+        //    MLContext mLContext = new MLContext(seed: seed);
+        //    //获取csv数据集(图片tag和路径),因为用,分隔，所以文件名不能有半角逗号
+        //    var fullData = mLContext.Data.LoadFromTextFile<ImageNetData>(path: trainTagPath, separatorChar: fileSplit, hasHeader: false);
+        //    //随机划分训练集和测试集
+        //    var trainTestData = mLContext.Data.TrainTestSplit(fullData, testFraction: 0.1);
+        //    var trainData = trainTestData.TrainSet;
+        //    var testData = trainTestData.TestSet;
 
 
-            //模型训练管道
-            //转换值为键
-            var pipeline = mLContext.Transforms.Conversion.MapValueToKey(outputColumnName: "LabelTokey", inputColumnName: "Label")
-                //加载图片
-                .Append(mLContext.Transforms.LoadImages(outputColumnName: "input", imageFolder: trainImageFolderPath, inputColumnName: nameof(ImageNetData.ImagePath)))
-                //重置图片大小
-                .Append(mLContext.Transforms.ResizeImages(outputColumnName: "input", imageWidth: imageNetSetting.imageWidth, imageHeight: imageNetSetting.imageHeight, inputColumnName: "input"))
-                //提取像素信息
-                .Append(mLContext.Transforms.ExtractPixels(outputColumnName: "input", interleavePixelColors: imageNetSetting.channelsLast, offsetImage: imageNetSetting.mean))
-                //使用tensorFlow的模型分析输出图片特征
-                .Append(mLContext.Model.LoadTensorFlowModel(inceptionPbModel).
-                    ScoreTensorFlowModel(outputColumnNames: new[] { "softmax2_pre_activation" }, inputColumnNames: new[] { "input" }, addBatchDimensionInput: true))
-                .Append(mLContext.Auto().MultiClassification(labelColumnName: "LabelTokey", featureColumnName: "softmax2_pre_activation"))
-                .Append(mLContext.Transforms.Conversion.MapKeyToValue("PredictedLabelValue", "PredictedLabel"));
-                
-                
+        //    //模型训练管道
+        //    //转换值为键
+        //    var pipeline = mLContext.Transforms.Conversion.MapValueToKey(outputColumnName: "LabelTokey", inputColumnName: "Label")
+        //        //加载图片
+        //        .Append(mLContext.Transforms.LoadImages(outputColumnName: "input", imageFolder: trainImageFolderPath, inputColumnName: nameof(ImageNetData.ImagePath)))
+        //        //重置图片大小
+        //        .Append(mLContext.Transforms.ResizeImages(outputColumnName: "input", imageWidth: imageNetSetting.imageWidth, imageHeight: imageNetSetting.imageHeight, inputColumnName: "input"))
+        //        //提取像素信息
+        //        .Append(mLContext.Transforms.ExtractPixels(outputColumnName: "input", interleavePixelColors: imageNetSetting.channelsLast, offsetImage: imageNetSetting.mean))
+        //        //使用tensorFlow的模型分析输出图片特征
+        //        .Append(mLContext.Model.LoadTensorFlowModel(inceptionPbModel).
+        //            ScoreTensorFlowModel(outputColumnNames: new[] { "softmax2_pre_activation" }, inputColumnNames: new[] { "input" }, addBatchDimensionInput: true))
+        //        .Append(mLContext.Auto().MultiClassification(labelColumnName: "LabelTokey", featureColumnName: "softmax2_pre_activation"))
+        //        .Append(mLContext.Transforms.Conversion.MapKeyToValue("PredictedLabelValue", "PredictedLabel"));
 
 
 
-            AutoMLExperiment experiment = mLContext.Auto().CreateExperiment();
-            experiment
-                .SetPipeline(pipeline)
-                .SetRegressionMetric(RegressionMetric.RSquared)
-                .SetTrainingTimeInSeconds(ExperimentTime)
-                .SetDataset(trainTestData);
 
-            mLContext.Log += MLContext_Log;
 
-            //使用该管道训练模型
-            MessageBox.Show("开始训练模型");
+        //    AutoMLExperiment experiment = mLContext.Auto().CreateExperiment();
+        //    experiment
+        //        .SetPipeline(pipeline)
+        //        .SetRegressionMetric(RegressionMetric.RSquared)
+        //        .SetTrainingTimeInSeconds(ExperimentTime)
+        //        .SetDataset(trainTestData);
 
-            TrialResult experimentResults = experiment.Run();    
-            var model = experimentResults.Model;
-            //将测试数据转换为模型对应的格式
-            var evaData = model.Transform(testData);
-            //测试模型拟合度
-           
-            MessageBox.Show($"测试准确率;{experimentResults.Metric}");
-            //保存模型
-            string path = Path.Combine(trainModelSavePath, $"{trainModelSaveName}METRICS{experimentResults.Metric:P0}.zip");
-            mLContext.Model.Save(model, trainData.Schema, path);
-            MessageBox.Show($"成功训练并保存模型为\n{path}");
-        }
+        //    mLContext.Log += MLContext_Log;
 
-        private static void MLContext_Log(object? sender, LoggingEventArgs e)
-        {
-            if(e.Source.Equals("AutoMLExperiment"))
-            {
-                Console.WriteLine(e.RawMessage);
-            }
-        }
+        //    //使用该管道训练模型
+        //    MessageBox.Show("开始训练模型");
+
+        //    TrialResult experimentResults = experiment.Run();    
+        //    var model = experimentResults.Model;
+        //    //将测试数据转换为模型对应的格式
+        //    var evaData = model.Transform(testData);
+        //    //测试模型拟合度
+
+        //    MessageBox.Show($"测试准确率;{experimentResults.Metric}");
+        //    //保存模型
+        //    string path = Path.Combine(trainModelSavePath, $"{trainModelSaveName}METRICS{experimentResults.Metric:P0}.zip");
+        //    mLContext.Model.Save(model, trainData.Schema, path);
+        //    MessageBox.Show($"成功训练并保存模型为\n{path}");
+        //}
+
+        //private static void MLContext_Log(object? sender, LoggingEventArgs e)
+        //{
+        //    if(e.Source.Equals("AutoMLExperiment"))
+        //    {
+        //        Console.WriteLine(e.RawMessage);
+        //    }
+        //}
 
         #endregion
     }

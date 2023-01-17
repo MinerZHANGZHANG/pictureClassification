@@ -5,7 +5,6 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ImageClassification.Dialog"
         mc:Ignorable="d"
-        Closing="Window_Closing"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         Title="批量添加标签" Height="280" Width="400" HorizontalAlignment="Center" VerticalAlignment="Center">

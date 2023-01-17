@@ -1,14 +1,15 @@
-﻿using ImageClassification.Dialog;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
-//using System.Windows.Shapes;
+
+using ImageClassification.Dialog;
 using static ImageClassification.ImageSolution;
 
 namespace ImageClassification
@@ -29,20 +30,37 @@ namespace ImageClassification
     /// </summary>
     public partial class TrainWindow : Window
     {
+        #region ——字段——
+        //图片预处理设置
         public ImageNetSetting imageNetSetting;
 
         //图片文件夹输入路径
-        protected string ImageInputDirPath;
+        public string ImageInputDirPath;
         //模型输出路径
         protected string ModelOutputDirPath;
+        //标记文件保存路径
+        protected string TagFilePath;
+        //标记文件夹名称
+        protected const string tagDirName = "ImageTag";
+        //标记文件的后缀(分隔符定义在ImageSolution类里了)
+        private const string tagFileSuffix = "tsv";
 
-        //图片文件列表
+        //目录下图片文件列表
         protected List<FileInfo> imageInfos=new();
+        //目录下未识别的文件夹列表
+        private List<DirectoryInfo> directoryInfos = new(); 
+        //目录下的非图片文件列表
+        private List<FileInfo> otherInfos= new();
+
         //图片计数
         protected int imageCount = 0;
         //标签列表
         private List<string> tagsList=new();
+        
+        //添加标签时是否覆盖之前的标签
+        private bool isReplaceTag;
 
+        #endregion
 
         /// <summary>
         /// 窗体初始化函数
@@ -51,41 +69,73 @@ namespace ImageClassification
         {
             InitializeComponent();
             //添加自定义鼠标点击事件到放置图片标签的ListBox
-            TagListBox.AddHandler(System.Windows.Controls.ListBox.MouseLeftButtonUpEvent, new MouseButtonEventHandler(TagListBox_PreviewMouseRightButtonUp), true);
-
+            TagListBox.AddHandler(MouseLeftButtonUpEvent, new MouseButtonEventHandler(TagListBox_PreviewMouseRightButtonUp), true);
+     
             imageNetSetting = DefaultImageSetting;
+            isReplaceTag=isUpdateTag.IsChecked.Value;
+
+            //如果标签文件夹不存在就新建一个
+            if (!Directory.Exists(tagDirName))
+            {
+                Directory.CreateDirectory(tagDirName);
+            }
         }
 
         
         /// <summary>
-        /// 添加图片数据到csv文件
+        /// 添加图片数据到文件
         /// </summary>
         /// <param name="imageTagData">图片数据(标签和图片路径)</param>
-        public void AddToCSV(ImageTagData imageTagData)
+        public void AddTagToFile(ImageTagData imageTagData)
         {
+            //判断图片输入路径是否存在
             if (string.IsNullOrEmpty(ImageInputDirPath))
             {
                 System.Windows.MessageBox.Show("未选择图片输入路径");
                 return;
             }
 
-            DirectoryInfo directoryInfo = new DirectoryInfo(ImageInputDirPath);
-            if(directoryInfo.Parent.Exists)
+            //是否采用替换方式添加标签 且 标签文件存在
+            if (isReplaceTag && File.Exists(TagFilePath))
             {
-                //写入数据到csv文件
-                string csvPath = Path.Combine(directoryInfo.Parent.FullName, $"{directoryInfo.Name}-ImagesTag.csv");
-                FileStream fileStream = new FileStream(csvPath, FileMode.Append);
-                StreamWriter streamWriter = new StreamWriter(fileStream, Encoding.GetEncoding("utf-8"));
-                streamWriter.WriteLine($"{imageTagData.ImagePath},{imageTagData.Label}");
-                //关闭文件流
-                streamWriter.Flush();
-                streamWriter.Close();
-                fileStream.Close();
+                //读取标签文件，把其中对应的标签信息进行替换
+                string[] lines = File.ReadAllLines(TagFilePath);
+                string[] imageInfo;
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    imageInfo = lines[i].Split(fileSplit);
+                    if (imageInfo[0] == imageInfos[imageCount].Name)
+                    {
+                        lines[i] = $"{imageInfo[0]}{fileSplit}{imageTagData.Label}";
+                        File.Delete(TagFilePath);
+                        File.WriteAllLines(TagFilePath, lines);
+
+                        return;
+                    }
+                }
+                //如果找不到就添加到最后
+                using (FileStream fileStream = new FileStream(TagFilePath, FileMode.Append))
+                {
+                    using (StreamWriter streamWriter = new StreamWriter(fileStream, Encoding.GetEncoding("utf-8")))
+                    {
+                        streamWriter.WriteLine($"{imageTagData.ImagePath}{fileSplit}{imageTagData.Label}");
+                        streamWriter.Flush();
+                    }
+                }
+
             }
             else
             {
-                System.Windows.MessageBox.Show($"{directoryInfo.FullName}的父目录不存在，请选择别的目录");
-            }      
+                using (FileStream fileStream = new FileStream(TagFilePath, FileMode.Append))
+                {
+                    using (StreamWriter streamWriter = new StreamWriter(fileStream, Encoding.GetEncoding("utf-8")))
+                    {
+                        streamWriter.WriteLine($"{imageTagData.ImagePath}{fileSplit}{imageTagData.Label}");
+                        streamWriter.Flush();
+                    }
+                }
+            }
+                     
         }
 
         /// <summary>
@@ -94,19 +144,76 @@ namespace ImageClassification
         protected void ShowImage()
         {           
             //判断图片计数是否溢出
-            if (imageCount >= imageInfos.Count)
+            if (imageCount >= imageInfos.Count||imageCount<0)
             {
                 return;
             }
-            //修改计数文本
-            Count.Content = $"当前{imageCount + 1}/{imageInfos.Count}";
-            //设置图片到控件
+            //修改计数文本控件
+            Count.Content = $"{imageCount + 1}/{imageInfos.Count}";
+            //转换为位图显示到图片控件
             BitmapImage bitmapImage = new BitmapImage();
             bitmapImage.BeginInit();
             bitmapImage.UriSource = new Uri(imageInfos[imageCount].FullName);
             bitmapImage.EndInit();
-            ImageShow.Source = bitmapImage;     
+            ImageShow.Source = bitmapImage;
+            //设置图片标签文本
+            TryGetImageTag(out string imageTag);
+            ImageTagTextBlock.Text = imageTag;
         }
+
+
+ 
+        /// <summary>
+        /// 获取图片的标签
+        /// </summary>
+        /// <param name="imageTag">图片标签</param>
+        /// <returns>是否有标签</returns>
+        protected bool TryGetImageTag(out string imageTag)
+        {
+            //判断是否选择了图片文件夹
+            if (string.IsNullOrEmpty(ImageInputDirPath))
+            {
+                System.Windows.MessageBox.Show("未选择导入图片的文件夹路径");
+                imageTag = "";
+                return false;
+            }
+
+            //判断标签文件是否存在
+            if (!File.Exists(TagFilePath))
+            {
+                imageTag = "未添加标记";
+                return false;
+            }
+
+            //图片文件夹信息
+            DirectoryInfo directoryInfo = new DirectoryInfo(ImageInputDirPath);
+            //获取图片名称
+            var curImageName = imageInfos[imageCount].Name;
+           
+            //判断当前图片在所选目录下是否存在
+            if (File.Exists(Path.Combine(directoryInfo.FullName,curImageName)))
+            {
+                //挨个比较标签记录信息，如果找到对应的图片就返回true和输出标签名称
+                string[] lines = File.ReadAllLines(TagFilePath, Encoding.GetEncoding("utf-8"));
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    if (lines[i].Split(fileSplit)[0] == curImageName)
+                    {
+                        imageTag = lines[i].Split(fileSplit)[1];
+                        return true;
+                    }
+                }
+                imageTag = "未添加标记";
+                return false;
+            }
+            else
+            {
+                imageTag = "当前目录下未找到图片";
+                return false;
+            }
+        
+        }
+
 
         #region ——窗体事件——
         /// <summary>
@@ -114,39 +221,81 @@ namespace ImageClassification
         /// </summary>
         private void ImageInputPath_Click(object sender, RoutedEventArgs e)
         {
+            //创建文件选择对话框
             var SelectPathDialog = new FolderBrowserDialog();
+            //设置对话框属性
             SelectPathDialog.Description = "选择导入图片的文件夹";
             SelectPathDialog.InitialDirectory = Environment.CurrentDirectory;
+            //根据对话框选择的结果进行操作
             DialogResult result = SelectPathDialog.ShowDialog();
-
             if (result == System.Windows.Forms.DialogResult.OK)
             {
+                //清空已有的图片信息
                 imageInfos.Clear();
+                //清空已有的子文件夹信息和其它文件信息
+                otherInfos.Clear();
+                directoryInfos.Clear();
+
+                //图片计数归零
                 imageCount = 0;
+                //设置图片导入路径
                 InputPath.Content = SelectPathDialog.SelectedPath;
                 ImageInputDirPath = SelectPathDialog.SelectedPath;
 
+                //获取所选文件夹信息
                 DirectoryInfo ImagesDir = new DirectoryInfo(ImageInputDirPath);
+                //添加图片文件
                 imageInfos.AddRange(ImagesDir.GetFiles("*.jpg"));
+                imageInfos.AddRange(ImagesDir.GetFiles("*.jpeg"));
                 imageInfos.AddRange(ImagesDir.GetFiles("*.png"));
                 imageInfos.AddRange(ImagesDir.GetFiles("*.bmp"));
+                //添加文件夹文件
+                directoryInfos.AddRange(ImagesDir.GetDirectories());
+                //添加其它未识别的文件(没写)
 
+                //输出添加的图片数量
                 System.Windows.MessageBox.Show($"已经添加了{imageInfos.Count}幅图片");
 
-                string csv_path = Path.Combine(ImagesDir.Parent.FullName, $"{ImagesDir.Name}-ImagesTag.csv");
-                if (File.Exists(csv_path))
+                //弹窗选择是否乱序导入图片
+                MessageBoxResult messageBoxResult= System.Windows.MessageBox.Show("是否使用乱序导入图片\n", "导入方式", MessageBoxButton.YesNo);
+                if (messageBoxResult == MessageBoxResult.Yes)
                 {
-                    //统计文件中的记录数量
-                    string[]? lines = File.ReadAllLines(csv_path);
-                    int count = lines.Length;
-
-                    MessageBoxResult boxResult= System.Windows.MessageBox.Show($"检测到已经添加标签文件，\n其中包含{count}条记录\n是否重置该文件",caption:"是否重置文件",MessageBoxButton.YesNo);
-                    if (boxResult == MessageBoxResult.Yes)
+                    int index;
+                    FileInfo temp; 
+                    //遍历并随机交换文件在列表中的位置
+                    for (int i = 0; i < imageInfos.Count; i++)
                     {
-                        File.Delete(csv_path);
+                        index = new Random().Next(i, imageInfos.Count);                       
+                        temp = imageInfos[i];
+                        imageInfos[i] = imageInfos[index];
+                        imageInfos[index] = temp;
                     }
                 }
 
+
+                //设置该路径对应的标签文件路径
+                TagFilePath = Path.Combine(tagDirName, $"{ImagesDir.FullName}-ImagesTag.{tagFileSuffix}");
+
+                //判断是否已经存在对应文件夹的标签文件
+                if (File.Exists(TagFilePath))
+                {
+                    //统计文件中的记录数量
+                    string[]? lines = File.ReadAllLines(TagFilePath);
+                    int count = lines.Length;
+                    //弹窗选择是否重置标签文件
+                    MessageBoxResult boxResult= System.Windows.MessageBox.Show($"检测到该文件夹已经添加标签文件，是否重置该文件",caption:"是否重置文件",MessageBoxButton.YesNo);
+                    if (boxResult == MessageBoxResult.Yes)
+                    {
+                        //二次确认
+                        MessageBoxResult secondResult = System.Windows.MessageBox.Show($"确定要删除记录吗?\n其中包含{count}条图片标签记录", caption: "是否重置文件", MessageBoxButton.YesNo);
+                        if(secondResult == MessageBoxResult.Yes)
+                        {
+                            File.Delete(TagFilePath);
+                            System.Windows.MessageBox.Show($"已删除记录:\n{TagFilePath}");
+                        }                      
+                    }
+                }
+                //显示图片
                 ShowImage();
             }
 
@@ -158,11 +307,12 @@ namespace ImageClassification
         /// </summary>
         private void ImageOutputPath_Click(object sender, RoutedEventArgs e)
         {
+            //创建文件夹选择窗口
             var SelectPathDialog = new FolderBrowserDialog();
             SelectPathDialog.Description = "选择输出结果的文件夹";
             SelectPathDialog.InitialDirectory = Environment.CurrentDirectory;
             DialogResult result = SelectPathDialog.ShowDialog();
-
+            //设置输出路径字段
             if (result == System.Windows.Forms.DialogResult.OK)
             {
                 OutputPath.Content = SelectPathDialog.SelectedPath;
@@ -175,6 +325,7 @@ namespace ImageClassification
         /// </summary>
         private void TagAdd_Click(object sender, RoutedEventArgs e)
         {
+            //判断输入的Tag是否符合要求
             if (string.IsNullOrEmpty(TagInput.Text))
             {
                 System.Windows.MessageBox.Show($"输入tag不能为空");
@@ -185,6 +336,7 @@ namespace ImageClassification
             }
             else
             {
+                //添加到Listbox控件和列表
                 tagsList.Add(TagInput.Text);
                 TagListBox.Items.Add(TagInput.Text);
             }
@@ -195,25 +347,14 @@ namespace ImageClassification
         /// </summary>
         private void ModelSave_Click(object sender, RoutedEventArgs e)
         {
-            DirectoryInfo directoryInfo = new DirectoryInfo(ImageInputDirPath);
-            string csvTagPath = Path.Combine(directoryInfo.Parent.FullName, $"{directoryInfo.Name}-ImagesTag.csv");
-            if (ImageInputDirPath == null)
+            if (string.IsNullOrEmpty(ImageInputDirPath)|| string.IsNullOrEmpty(ModelOutputDirPath))
             {
-
-            }
-            else if (csvTagPath == null)
-            {
-
-            }
-            else if (ModelName.Text == null)
-            {
-
+                System.Windows.MessageBox.Show($"未选择图片导入路径或模型输出路径");
             }
             else
             {
-                ImageSolution.TrainAndSaveModel(csvTagPath, ImageInputDirPath, ModelOutputDirPath, imageNetSetting, ModelName.Text);
+                ImageSolution.TrainAndSaveModel(TagFilePath, ImageInputDirPath, ModelOutputDirPath, imageNetSetting, ModelName.Text);
             }
-                
         }
 
         /// <summary>
@@ -221,24 +362,29 @@ namespace ImageClassification
         /// </summary>
         private void TagListBox_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
-            //System.Windows.MessageBox.Show("我被点击了");
+            //如果选择的标签不为空
             if (TagListBox.SelectedItem != null)
             {
+                //当图片计数大于总数时弹窗提示
                 if (imageCount >= imageInfos.Count)
                 {
                     System.Windows.MessageBox.Show($"文件夹中所有图片都被分配了标签");
                 }
                 else
                 {
+                    //根据点击的标签和当前图片序号，写入标记信息到文件中
                     ImageTagData imageTagData = new ImageTagData { ImagePath = imageInfos[imageCount].Name, Label = TagListBox.SelectedItem.ToString() };
-                    AddToCSV(imageTagData);
-                    imageCount += 1;                    
-                    if (imageCount == imageInfos.Count)
+                    AddTagToFile(imageTagData);                   
+                    //计数达到图片总数时弹窗提示，否则显示下一张图片
+                    if (imageCount+1 == imageInfos.Count)
                     {
                         System.Windows.MessageBox.Show("已经完成了这个文件下图片的标记");
+                        ShowImage();
                     }
                     else
                     {
+                        //切换下一张图片
+                        imageCount += 1;
                         ShowImage();
                     }
                     
@@ -247,36 +393,170 @@ namespace ImageClassification
         }
 
         /// <summary>
-        /// 按钮事件，开始自动训练
+        /// 按钮事件，开始自动训练(未完成)
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void AutoTrain_Click(object sender, RoutedEventArgs e)
         {
-            DirectoryInfo directoryInfo = new DirectoryInfo(ImageInputDirPath);
-            string csvTagPath = Path.Combine(directoryInfo.Parent.FullName, $"{directoryInfo.Name}-ImagesTag.csv");
-            if (ImageInputDirPath == null)
-            {
+            System.Windows.MessageBox.Show("该功能尚未实现");
+            //if (string.IsNullOrEmpty(ImageInputDirPath))
+            //{
+            //    System.Windows.MessageBox.Show("未选择导入图片的文件夹路径");
+            //    return;
+            //}
+            //DirectoryInfo directoryInfo = new DirectoryInfo(ImageInputDirPath);
+            //string csvTagPath = Path.Combine(directoryInfo.Parent.FullName, $"{directoryInfo.Name}-ImagesTag.csv");
+            //if (csvTagPath == null)
+            //{
 
-            }
-            else if (csvTagPath == null)
-            {
+            //}
+            //else if (ModelName.Text == null)
+            //{
+            //}
+            //else if(uint.TryParse(TrainTime.Text,out uint result))
+            //{
+            //    System.Windows.MessageBox.Show("自动多次训练还存在问题");              
+            //    //ImageSolution.AutoTrainAndSave(csvTagPath, ImageInputDirPath, ModelOutputDirPath, result, ImageSolution.DefaultImageSetting);
+            //}
+            //else
+            //{
+                
+            //}
+        }
 
-            }
-            else if (ModelName.Text == null)
+        /// <summary>
+        /// 打开图片预处理窗口
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void ImageSetting_Click(object sender, RoutedEventArgs e)
+        {
+            ImageSettingDialog imageSettingDialog = new ImageSettingDialog(this);
+            bool? result = imageSettingDialog.ShowDialog();
+            if (result == true)
             {
+                System.Windows.MessageBox.Show($"已重新设置图片处理属性为:\n高度:{imageNetSetting.imageHeight}" +
+                $"\n宽度:{imageNetSetting.imageWidth}\n颜色值偏移量:{imageNetSetting.mean}\n颜色值缩放量:{imageNetSetting.scale}");
             }
-            else if(uint.TryParse(TrainTime.Text,out uint result))
+        }
+
+        /// <summary>
+        /// 打开批量导入图片设置标签窗口
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void ImportImages_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(ImageInputDirPath))
             {
-                System.Windows.MessageBox.Show("自动多次训练还存在问题");              
-                //ImageSolution.AutoTrainAndSave(csvTagPath, ImageInputDirPath, ModelOutputDirPath, result, ImageSolution.DefaultImageSetting);
+                System.Windows.MessageBox.Show("需要先选择导入训练图片的文件夹");
+                return;
+            }
+
+            TagSelectDialog tagSelectDialog = new TagSelectDialog(this);
+            bool? result = tagSelectDialog.ShowDialog();
+        }
+
+        /// <summary>
+        /// 撤销最后一次写入文件的操作
+        /// </summary>
+        private void UndoButton_Click(object sender, RoutedEventArgs e)
+        {
+            //判断惯例先一下
+            if (imageCount == 0|| string.IsNullOrEmpty(ImageInputDirPath))
+            {
+                System.Windows.MessageBox.Show("没有可以撤销的操作");
+                return;
+            }
+
+            //通过读取所有文件，删除最后一行的方式撤回
+            if(File.Exists(TagFilePath))
+            {
+                var lines = File.ReadAllLines(TagFilePath);
+                if(lines.Length> 0)
+                {
+                    File.WriteAllLines(TagFilePath, lines.Take(lines.Length - 1).ToArray());
+                    System.Windows.MessageBox.Show($"已撤回最后一次对图片的的标记");
+                    ShowImage();
+                    return;
+                }                  
+            }
+            System.Windows.MessageBox.Show("没有可以撤销的操作");
+                                            
+            
+        }
+
+        /// <summary>
+        /// 根据输入切换图片
+        /// </summary>
+        private void SwitchByIndex_Click(object sender, RoutedEventArgs e)
+        {
+            //判断一下是否有图片
+            if(imageInfos.Count==0)
+            {
+                System.Windows.MessageBox.Show("未导入图片");
+                return;
+            }
+            //转换字符串为整数,并限制范围
+            if(uint.TryParse(IndexInput.Text,out uint index))
+            {
+                //if(index== 0 || index>imageInfos.Count)
+                //{                  
+                //    System.Windows.MessageBox.Show($"输入的序号不在1到{imageInfos.Count}的范围内");
+                //}
+                //else
+                //{
+                //    imageCount = (int)index-1;
+                //    ShowImage();
+                //}
+                imageCount = (int)(Math.Clamp(index, 1, imageInfos.Count) - 1);
+                ShowImage();
             }
             else
             {
-                
+                IndexInput.Text = string.Empty;
+                System.Windows.MessageBox.Show("请输入正确的图片数字序号");
             }
         }
-        
+
+
+        /// <summary>
+        /// 上一张图片按钮
+        /// </summary>
+        private void PastImageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (imageCount - 1 >= 0)
+            {
+                imageCount -= 1;
+                ShowImage();
+            }
+
+        }
+
+        /// <summary>
+        /// 下一张图片按钮
+        /// </summary>
+        private void NextImageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (imageCount + 1 < imageInfos.Count)
+            {
+                imageCount += 1;
+                ShowImage();
+            }
+        }
+
+        /// <summary>
+        /// 是否开启覆盖选项
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void isUpdateTag_Checked(object sender, RoutedEventArgs e)
+        {
+            isReplaceTag = isUpdateTag.IsChecked.Value;
+        }
+
+
         ///// <summary>
         ///// 按钮事件，打开训练集Csv文件
         ///// </summary>
@@ -303,27 +583,6 @@ namespace ImageClassification
 
         #endregion
 
-        private void ImageSetting_Click(object sender, RoutedEventArgs e)
-        {
-            ImageSettingDialog imageSettingDialog = new ImageSettingDialog(this);
-            bool? result= imageSettingDialog.ShowDialog();
-            if (result == true) 
-            {
-                System.Windows.MessageBox.Show($"已重新设置图片处理属性为:\n高度:{imageNetSetting.imageHeight}" +
-                $"\n宽度:{imageNetSetting.imageWidth}\n颜色值偏移量:{imageNetSetting.mean}\n颜色值缩放量:{imageNetSetting.scale}");
-            }
-        }
 
-        private void ImportImages_Click(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrEmpty(ImageInputDirPath))
-            {
-                System.Windows.MessageBox.Show("需要先选择导入训练图片的文件夹");
-                return;
-            }
-
-            TagSelectDialog tagSelectDialog = new TagSelectDialog(this,ImageInputDirPath);
-            bool? result= tagSelectDialog.ShowDialog();
-        }
     }
 }
