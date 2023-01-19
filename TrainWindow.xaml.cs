@@ -56,7 +56,7 @@ namespace ImageClassification
         protected int imageCount = 0;
         
         //添加标签时是否覆盖之前的标签
-        private bool isReplaceTag;
+        public bool isReplaceTag;
 
         #endregion
 
@@ -101,14 +101,19 @@ namespace ImageClassification
                 for (int i = 0; i < lines.Length; i++)
                 {
                     imageInfo = lines[i].Split(fileSplit);
-                    if (imageInfo[0] == imageInfos[imageCount].Name)
+                    //判断是否满足替换条件
+                    if (imageInfo.Length == 2 && imageInfos.Count!=0)
                     {
-                        lines[i] = $"{imageInfo[0]}{fileSplit}{imageTagData.Label}";
-                        File.Delete(TagFilePath);
-                        File.WriteAllLines(TagFilePath, lines);
+                        if (imageInfo[0] == imageInfos[imageCount].Name)
+                        {
+                            lines[i] = $"{imageInfo[0]}{fileSplit}{imageTagData.Label}";
+                            File.Delete(TagFilePath);
+                            File.WriteAllLines(TagFilePath, lines);
 
-                        return;
+                            return;
+                        }
                     }
+                    
                 }
                 //如果找不到就添加到最后
                 using (FileStream fileStream = new FileStream(TagFilePath, FileMode.Append))
@@ -250,28 +255,31 @@ namespace ImageClassification
                 imageInfos.AddRange(ImagesDir.GetFiles("*.bmp"));
                 //添加文件夹文件
                 directoryInfos.AddRange(ImagesDir.GetDirectories());
-                //添加其它未识别的文件(没写)
+                //添加其它未识别的文件(好像这里用不到，没写)
 
                 //输出添加的图片数量
-                System.Windows.MessageBox.Show($"已经添加了{imageInfos.Count}幅图片");
-
-                //弹窗选择是否乱序导入图片
-                MessageBoxResult messageBoxResult= System.Windows.MessageBox.Show("是否使用乱序导入图片\n", "导入方式", MessageBoxButton.YesNo);
-                if (messageBoxResult == MessageBoxResult.Yes)
+                System.Windows.MessageBox.Show($"添加了所选文件夹下{imageInfos.Count}幅图片\n和{directoryInfos.Count}个文件夹");
+                //根据文件情况弹窗                             
+                if (imageInfos.Count != 0)
                 {
-                    int index;
-                    FileInfo temp; 
-                    //遍历并随机交换文件在列表中的位置
-                    for (int i = 0; i < imageInfos.Count; i++)
+                    //弹窗选择是否乱序导入图片
+                    MessageBoxResult messageBoxResult = System.Windows.MessageBox.Show("是否使用乱序导入图片\n", "导入方式", MessageBoxButton.YesNo);
+                    if (messageBoxResult == MessageBoxResult.Yes)
                     {
-                        index = new Random().Next(i, imageInfos.Count);                       
-                        temp = imageInfos[i];
-                        imageInfos[i] = imageInfos[index];
-                        imageInfos[index] = temp;
+                        int index;
+                        FileInfo temp;
+                        //遍历并随机交换文件在列表中的位置
+                        for (int i = 0; i < imageInfos.Count; i++)
+                        {
+                            index = new Random().Next(i, imageInfos.Count);
+                            temp = imageInfos[i];
+                            imageInfos[i] = imageInfos[index];
+                            imageInfos[index] = temp;
+                        }
                     }
                 }
 
-
+               
                 //设置该路径对应的标签文件路径
                 TagFilePath = Path.Combine(tagDirName, $"ImagesTag-{ImagesDir.Parent.Name}-{ImagesDir.Name}.{tagFileSuffix}");
 

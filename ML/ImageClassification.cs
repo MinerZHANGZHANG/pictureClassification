@@ -9,7 +9,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using System.Text;
-using System.Diagnostics;
 using System.ComponentModel;
 
 namespace ImageClassification

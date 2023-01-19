@@ -145,6 +145,9 @@ namespace ImageClassification.Dialog
             }
             else
             {
+                //暂时修改替换模式，避免大量循环判断导致的卡顿
+                bool temp = trainWindow.isReplaceTag;
+                trainWindow.isReplaceTag = false;
                 //遍历所选的文件夹下的图片，添加标记信息到文件
                 for(int i=0;i<imageFileList.Count;i++) 
                 {
@@ -155,6 +158,8 @@ namespace ImageClassification.Dialog
                     };
                     trainWindow.AddTagToFile(imageTagData);
                 }
+                //改回来
+                trainWindow.isReplaceTag = temp;
                 //二次确认
                 MessageBoxResult messageBoxResult = System.Windows.MessageBox.Show(
                     $"是否将{childDirName}文件夹\n下的{imageFileList.Count}张图片\n设置为{selectTag}标签", "批量标记", MessageBoxButton.YesNo);
