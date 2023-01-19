@@ -54,8 +54,6 @@ namespace ImageClassification
 
         //图片计数
         protected int imageCount = 0;
-        //标签列表
-        private List<string> tagsList=new();
         
         //添加标签时是否覆盖之前的标签
         private bool isReplaceTag;
@@ -72,7 +70,7 @@ namespace ImageClassification
             TagListBox.AddHandler(MouseLeftButtonUpEvent, new MouseButtonEventHandler(TagListBox_PreviewMouseRightButtonUp), true);
      
             imageNetSetting = DefaultImageSetting;
-            isReplaceTag=isUpdateTag.IsChecked.Value;
+            isReplaceTag=IsUpdateTag.IsChecked.Value;
 
             //如果标签文件夹不存在就新建一个
             if (!Directory.Exists(tagDirName))
@@ -83,7 +81,7 @@ namespace ImageClassification
 
         
         /// <summary>
-        /// 添加图片数据到文件
+        /// 添加图片数据到文件，格式为[图片名称][分隔符][图片标签]
         /// </summary>
         /// <param name="imageTagData">图片数据(标签和图片路径)</param>
         public void AddTagToFile(ImageTagData imageTagData)
@@ -94,7 +92,6 @@ namespace ImageClassification
                 System.Windows.MessageBox.Show("未选择图片输入路径");
                 return;
             }
-
             //是否采用替换方式添加标签 且 标签文件存在
             if (isReplaceTag && File.Exists(TagFilePath))
             {
@@ -158,7 +155,9 @@ namespace ImageClassification
             ImageShow.Source = bitmapImage;
             //设置图片标签文本
             TryGetImageTag(out string imageTag);
-            ImageTagTextBlock.Text = imageTag;
+            ImageTagTextBlock.Text = $"标签:{imageTag}";
+            //设置图片路径文本
+            ImagePathTextBlock.Text = $"路径:{imageInfos[imageCount].FullName}";
         }
 
 
@@ -274,7 +273,7 @@ namespace ImageClassification
 
 
                 //设置该路径对应的标签文件路径
-                TagFilePath = Path.Combine(tagDirName, $"{ImagesDir.FullName}-ImagesTag.{tagFileSuffix}");
+                TagFilePath = Path.Combine(tagDirName, $"ImagesTag-{ImagesDir.Parent.Name}-{ImagesDir.Name}.{tagFileSuffix}");
 
                 //判断是否已经存在对应文件夹的标签文件
                 if (File.Exists(TagFilePath))
@@ -282,6 +281,18 @@ namespace ImageClassification
                     //统计文件中的记录数量
                     string[]? lines = File.ReadAllLines(TagFilePath);
                     int count = lines.Length;
+
+                    //将标签文件中的标签添加到ListBox控件
+                    TagListBox.Items.Clear();
+                    for(int i = 0; i < count; i++)
+                    {
+                        if (!TagListBox.Items.Contains(lines[i].Split(fileSplit)[1]))
+                        {
+                            TagListBox.Items.Add(lines[i].Split(fileSplit)[1]);
+                        }
+                    }
+                    
+
                     //弹窗选择是否重置标签文件
                     MessageBoxResult boxResult= System.Windows.MessageBox.Show($"检测到该文件夹已经添加标签文件，是否重置该文件",caption:"是否重置文件",MessageBoxButton.YesNo);
                     if (boxResult == MessageBoxResult.Yes)
@@ -330,14 +341,14 @@ namespace ImageClassification
             {
                 System.Windows.MessageBox.Show($"输入tag不能为空");
             }
-            else if (tagsList.Contains(TagInput.Text))
+            else if (TagListBox.Items.Contains(TagInput.Text))
             {
+                //System.Windows.MessageBox.Show(TagListBox.Items[0].GetType().ToString());
                 System.Windows.MessageBox.Show($"已经添加过tag {TagInput.Text} 了");
             }
             else
             {
-                //添加到Listbox控件和列表
-                tagsList.Add(TagInput.Text);
+                //添加到Listbox控件
                 TagListBox.Items.Add(TagInput.Text);
             }
         }
@@ -347,13 +358,19 @@ namespace ImageClassification
         /// </summary>
         private void ModelSave_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(ImageInputDirPath)|| string.IsNullOrEmpty(ModelOutputDirPath))
+            if (string.IsNullOrEmpty(ImageInputDirPath) || string.IsNullOrEmpty(ModelOutputDirPath))
             {
                 System.Windows.MessageBox.Show($"未选择图片导入路径或模型输出路径");
             }
             else
             {
-                ImageSolution.TrainAndSaveModel(TagFilePath, ImageInputDirPath, ModelOutputDirPath, imageNetSetting, ModelName.Text);
+                TrainState.Text = "正在训练模型...";
+                MessageBoxResult secondResult = System.Windows.MessageBox.Show($"确定要开始训练模型吗?\n共标记了{File.ReadAllLines(TagFilePath).Length}幅图片", caption: "是否开始训练文件", MessageBoxButton.YesNo);
+                if (secondResult == MessageBoxResult.Yes)
+                {                    
+                    ImageSolution.TrainAndSaveModel(TagFilePath, ImageInputDirPath, ModelOutputDirPath, imageNetSetting, ModelName.Text);                    
+                }
+                TrainState.Text = "";
             }
         }
 
@@ -383,8 +400,11 @@ namespace ImageClassification
                     }
                     else
                     {
-                        //切换下一张图片
-                        imageCount += 1;
+                        //当采用叠加的方式添加标签信息时，不跳到下一张图片
+                        if (isReplaceTag)
+                        {
+                            imageCount += 1;
+                        }
                         ShowImage();
                     }
                     
@@ -459,32 +479,64 @@ namespace ImageClassification
         }
 
         /// <summary>
-        /// 撤销最后一次写入文件的操作
+        /// 撤销最后一次添加的标签
         /// </summary>
         private void UndoButton_Click(object sender, RoutedEventArgs e)
         {
-            //判断惯例先一下
-            if (imageCount == 0|| string.IsNullOrEmpty(ImageInputDirPath))
+            //if(TryGetImageTag(out string imageTag))
+            //{
+            //    //找到文件中对应的行进行删除
+            //    var lines = File.ReadAllLines(TagFilePath);
+            //    var imagePath = imageInfos[imageCount].Name;
+            //    List<int> delLineList = new();
+            //    for(int i = 0; i < lines.Length; i++)
+            //    {
+            //        if (imagePath == lines[i].Split(fileSplit)[0])
+            //        {
+            //            delLineList.Add(i);
+            //            //可能一个标记文件中有多条对这个图片的标记，所以未使用Break
+            //        }
+            //    }
+
+            //   // System.Windows.MessageBox.Show($"{lines.ToArray().}");
+            //    foreach (int count in delLineList)
+            //    {
+            //        lines[count] = null;
+            //    }
+            //    File.Delete(TagFilePath);
+            //    File.WriteAllLines(TagFilePath, lines.ToArray());
+            //    System.Windows.MessageBox.Show($"已清除对当前图片的{delLineList.Count}条标记");
+            //    ShowImage();
+            //    return;
+
+            //}
+            //else
+            //{
+            //    System.Windows.MessageBox.Show("当前图片未添加标签");
+            //}
+
+            //判断是否有标签文件
+            if (imageCount == 0 || string.IsNullOrEmpty(TagFilePath))
             {
                 System.Windows.MessageBox.Show("没有可以撤销的操作");
                 return;
             }
 
             //通过读取所有文件，删除最后一行的方式撤回
-            if(File.Exists(TagFilePath))
+            if (File.Exists(TagFilePath))
             {
                 var lines = File.ReadAllLines(TagFilePath);
-                if(lines.Length> 0)
+                if (lines.Length > 0)
                 {
                     File.WriteAllLines(TagFilePath, lines.Take(lines.Length - 1).ToArray());
                     System.Windows.MessageBox.Show($"已撤回最后一次对图片的的标记");
                     ShowImage();
                     return;
-                }                  
+                }
             }
             System.Windows.MessageBox.Show("没有可以撤销的操作");
-                                            
-            
+
+
         }
 
         /// <summary>
@@ -553,7 +605,18 @@ namespace ImageClassification
         /// <param name="e"></param>
         private void isUpdateTag_Checked(object sender, RoutedEventArgs e)
         {
-            isReplaceTag = isUpdateTag.IsChecked.Value;
+            isReplaceTag = IsUpdateTag.IsChecked.Value;
+            //System.Windows.MessageBox.Show(isReplaceTag.ToString());
+        }
+
+        /// <summary>
+        /// 清空tag标签栏
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        {
+            TagListBox.Items.Clear();
         }
 
 
@@ -582,6 +645,7 @@ namespace ImageClassification
         //}
 
         #endregion
+
 
 
     }

@@ -3,32 +3,57 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:cm="clr-namespace:System.ComponentModel;assembly=System"
         xmlns:local="clr-namespace:ImageClassification"
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
-        Title="MainWindow" Height="460" Width="800">
+        Title="图片分类" Height="435" Width="720">
+    <Window.Resources>
+        <cm:BackgroundWorker x:Key="backgroundWorker"
+                             WorkerReportsProgress="True"
+                             WorkerSupportsCancellation="True"
+                             DoWork="BackgroundWorker_DoWork"
+                             ProgressChanged="BackgroundWorker_ProgressChanged"
+                             RunWorkerCompleted="BackgroundWorker_RunWorkerCompleted">
+        </cm:BackgroundWorker>
+    </Window.Resources>
     <Grid>
-        <Button Content="开始分类" HorizontalAlignment="Left" Margin="650,359,0,0" VerticalAlignment="Top" Click="Button_Click" Height="60" Width="133" FontSize="24"/>
+
+        <Rectangle HorizontalAlignment="Left" Height="260" Margin="20,95,0,0"  VerticalAlignment="Top" Width="525" Fill="WhiteSmoke"/>
+
+        <Button x:Name="StartClassifity" Content="开始分类" HorizontalAlignment="Left" Margin="568,185,0,0" VerticalAlignment="Top" Click="Button_Click" Height="35" Width="120" FontSize="18"/>
+        <Button x:Name="OverClassifity" Content="结束分类" HorizontalAlignment="Left" Margin="568,234,0,0" VerticalAlignment="Top" Click="OverClassifity_Click" Height="35" Width="120" FontSize="18"/>
 
         <Label x:Name="InputPath" Content="图片文件夹输入路径"   HorizontalAlignment="Left" Margin="89,11,0,0" VerticalAlignment="Top" Height="30" Width="411" FontSize="14"/>
         <Button x:Name="ImageInputPath" Content="输入路径" Click="ImageInputPath_Click"  HorizontalAlignment="Left" Margin="10,15,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="25" Width="60"/>
 
-        <Label x:Name="OutputPath" Content="(图片分类结果输出路径)"   HorizontalAlignment="Left" Margin="95,384,0,0" VerticalAlignment="Top" Height="30" Width="547" FontSize="14"/>
-        <Button x:Name="ImageOutputPath" Content="输出路径" Click="ImageOutputPath_Click"  HorizontalAlignment="Left" Margin="14,386,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="25" Width="60"/>
+        <Label x:Name="OutputPath" Content="图片分类结果输出路径"   HorizontalAlignment="Left" Margin="89,48,0,0" VerticalAlignment="Top" Height="30" Width="411" FontSize="14"/>
+        <Button x:Name="ImageOutputPath" Content="输出路径" Click="ImageOutputPath_Click"  HorizontalAlignment="Left" Margin="10,50,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="25" Width="60"/>
 
-        <Image x:Name="ImageShow" HorizontalAlignment="Left" Height="261" Margin="40,71,0,0" VerticalAlignment="Top" Width="551"/>
+        <Image x:Name="ImageShow" HorizontalAlignment="Left" Height="254" Margin="20,97,0,0" VerticalAlignment="Top" Width="526"/>
 
-        <Button x:Name="ModelSelect" Click="ModelSelect_Click" FontSize="18" Content="选择模型" HorizontalAlignment="Left" Margin="648,8,0,0" VerticalAlignment="Top" Width="120" Height="38"/>
-        <Label x:Name="ModelPath" Content="用于分类的模型文件" HorizontalAlignment="Left" Margin="647,52,0,0" VerticalAlignment="Top" Width="133"/>
+        <Button x:Name="ModelSelect" Click="ModelSelect_Click" FontSize="18" Content="选择模型" HorizontalAlignment="Left" Margin="569,35,0,0" VerticalAlignment="Top" Width="120" Height="35"/>
+        <Label x:Name="ModelPath" Content="用于分类的模型文件" HorizontalAlignment="Left" Margin="566,5,0,0" VerticalAlignment="Top" Width="133"/>
 
-        <ComboBox x:Name="OutputMode"  HorizontalAlignment="Left" Margin="650,274,0,0" VerticalAlignment="Top" Width="120">
-            <ComboBoxItem IsSelected="True">仅弹窗显示</ComboBoxItem>
-            <ComboBoxItem>输出到文件夹</ComboBoxItem>
+        <ComboBox x:Name="OutputMode"  HorizontalAlignment="Left" Margin="569,117,0,0" VerticalAlignment="Top" Width="120">
+            <ComboBoxItem Content="仅弹窗显示"/>
+            <ComboBoxItem IsSelected="True" Content="输出到文件夹"/>
         </ComboBox>
-        <ProgressBar x:Name="RunProgressBar" Value="0" HorizontalAlignment="Left" Height="19" Margin="40,343,0,0" VerticalAlignment="Top" Width="552"/>
-        <Rectangle HorizontalAlignment="Left" Height="271" Margin="40,67,0,0" Stroke="Cyan"  VerticalAlignment="Top" Width="552"/>
-        <Button x:Name="TrainModel" Content="训练模型" FontSize="20" HorizontalAlignment="Left" Margin="648,138,0,0" VerticalAlignment="Top" Click="TrainModel_Click" Height="34" Width="127"/>
-        <Label Content="结果输出方式" HorizontalAlignment="Left" Margin="650,244,0,0" VerticalAlignment="Top"/>
+        <ProgressBar x:Name="RunProgressBar" Value="0" HorizontalAlignment="Left" Height="20" Margin="18,0,0,19" VerticalAlignment="Bottom" Width="522" RenderTransformOrigin="0.5,0.5">
+            <ProgressBar.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform/>
+                    <SkewTransform/>
+                    <RotateTransform Angle="-0.077"/>
+                    <TranslateTransform/>
+                </TransformGroup>
+            </ProgressBar.RenderTransform>
+        </ProgressBar>
+        <Button x:Name="TrainModel" Content="训练模型" FontSize="24" HorizontalAlignment="Left" Margin="570,341,0,0" VerticalAlignment="Top" Click="TrainModel_Click" Height="50" Width="120"/>
+
+        <Label Content="结果输出方式" HorizontalAlignment="Left" Margin="567,94,0,0" VerticalAlignment="Top"/>
+        <TextBlock Text="选择图片训练自定义模型" HorizontalAlignment="Left" Margin="567,318,0,0" TextWrapping="Wrap"  VerticalAlignment="Top"/>
+        <CheckBox x:Name="OutOtherFile" IsChecked="True" Content="输出所有文件" HorizontalAlignment="Left" Margin="570,142,0,0" VerticalAlignment="Top"/>
 
     </Grid>
 </Window>

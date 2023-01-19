@@ -1,8 +1,6 @@
-﻿//机器学习库
-using Microsoft.ML;
+﻿using Microsoft.ML;
 using Microsoft.ML.Data;
-//using Microsoft.ML.AutoML;
-//基本库
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,22 +9,35 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using System.Text;
+using System.Diagnostics;
+using System.ComponentModel;
 
 namespace ImageClassification
 {
     public class ImageSolution
     {
+        #region ——字段——
         //默认的资源文件夹路径
-        static readonly string AssetsFolder = @"D:\Data\程序\ImageClassification\DataSet\ImageClassification";         
+        static readonly string AssetsFolder = @"D:\Data\程序\ImageClassification\DataSet\ImageClassification";
         //训练数据/测试数据/训练标签文件/模型文件/图片特征提取模型文件的路径
         static readonly string TrainDataFolder = Path.Combine(AssetsFolder, "train");
         static readonly string TestDataFolder = Path.Combine(AssetsFolder, "test");
-        static readonly string TrainTagsPath = Path.Combine(AssetsFolder, "train_tags.tsv");       
+        static readonly string TrainTagsPath = Path.Combine(AssetsFolder, "train_tags.tsv");
         static readonly string imageClassifierZip = Path.Combine(AssetsFolder, "MLModel", "imageClassifier.zip");
         static readonly string inceptionPb = Path.Combine(AssetsFolder, "TensorFlow", "tensorflow_inception_graph.pb");
-        
+
         //标记文件使用的分隔符
-        public const char fileSplit = ',';
+        public const char fileSplit = '\t';
+        //默认的图片预处理设置
+        public static readonly ImageNetSetting DefaultImageSetting = new ImageNetSetting(224, 224, 117, 1, true);
+
+        //识别的图片格式
+        private static readonly List<string> imageTypes = new() { ".jpg", ".jpeg",".png",".bmp" };
+
+        #endregion
+
+
+        #region ——数据结构——
         /// <summary>
         /// 图片数据
         /// </summary>
@@ -52,10 +63,6 @@ namespace ImageClassification
             }
         }
 
-        public static readonly ImageNetSetting DefaultImageSetting=new ImageNetSetting(224,224,117,1,true);
-
-
-
         /// <summary>
         /// 图片训练数据类
         /// </summary>
@@ -79,6 +86,9 @@ namespace ImageClassification
             //判断结果标签
             public string PredictedLabelValue;
         }
+
+        #endregion
+
 
         #region ——图片分类基本流程函数——
         /// <summary>
@@ -177,9 +187,10 @@ namespace ImageClassification
                 DirectoryInfo ImagesDir = new DirectoryInfo(ImageDirPath);
                 List<FileInfo> fileList = new List<FileInfo>();
 
-                fileList.AddRange(ImagesDir.GetFiles("*.jpg"));
-                fileList.AddRange(ImagesDir.GetFiles("*.png"));
-                fileList.AddRange(ImagesDir.GetFiles("*.bmp"));
+               foreach(string imageType in imageTypes)
+                {
+                    fileList.AddRange(ImagesDir.GetFiles($"*{imageType}"));
+                }
 
                 //遍历文件，使用模型判断图片类型
                 for (int i = 0; i < fileList.Count; i++)
@@ -217,7 +228,7 @@ namespace ImageClassification
         /// <param name="ImageDirPath">图片文件夹路径</param>
         /// <param name="OutputPath">输出文件夹路径</param>
         /// <param name="progressBar">进度条控件</param>
-        public static void Classificated(string ModelPath, string ImageDirPath,string OutputPath,ref ProgressBar progressBar)
+        public static void Classificated(string ModelPath, string ImageDirPath,string OutputPath,BackgroundWorker worker,DoWorkEventArgs doWorkEvent, bool copyOtherFile=true)
         {
             //创建机器学习上下文
             MLContext mLContext = new MLContext(seed: 1);
@@ -231,19 +242,32 @@ namespace ImageClassification
 
                 //添加路径中的图片文件到列表
                 DirectoryInfo ImagesDir = new DirectoryInfo(ImageDirPath);
-                List<FileInfo> fileList = new List<FileInfo>();
+                List<FileInfo> imageFileList = new List<FileInfo>();
+                //为被识别的文件夹和文件
+                List<DirectoryInfo> otherDirList = new List<DirectoryInfo>();
+                List<FileInfo> otherFileList=new List<FileInfo>();
 
-                fileList.AddRange(ImagesDir.GetFiles("*.jpg"));
-                fileList.AddRange(ImagesDir.GetFiles("*.png"));
-                fileList.AddRange(ImagesDir.GetFiles("*.bmp"));
+                foreach (FileInfo file in ImagesDir.GetFiles())
+                {
+                    if (imageTypes.Contains(file.Extension))
+                    {
+                        imageFileList.Add(file);
+                    }
+                    else
+                    {
+                        otherFileList.Add(file);
+                    }
+                }
+                otherDirList.AddRange(ImagesDir.GetDirectories());
+
 
                 //不同类别图片统计字典
                 Dictionary<string, uint> ImageTypeCount = new Dictionary<string, uint>();
 
                 //遍历文件，使用模型判断图片类型
-                for (int i = 0; i < fileList.Count; i++)
+                for (int i = 0; i < imageFileList.Count; i++)
                 {
-                    FileInfo? imageFile = fileList[i];
+                    FileInfo? imageFile = imageFileList[i];
 
                     ImageNetData image = new ImageNetData();
                     image.ImagePath = imageFile.FullName;
@@ -251,15 +275,13 @@ namespace ImageClassification
 
                     //根据情况添加图片到分类名称下的文件夹
                     string imageType = pred.PredictedLabelValue;
-                    if (Directory.Exists(Path.Combine(OutputPath, imageType)))
-                    {
-                        File.Copy(imageFile.FullName, Path.Combine(OutputPath, imageType, imageFile.Name), false);
-                    }
-                    else
+                    if (!Directory.Exists(Path.Combine(OutputPath, imageType)))
                     {
                         Directory.CreateDirectory(Path.Combine(OutputPath, imageType));
-                        File.Copy(imageFile.FullName, Path.Combine(OutputPath, imageType, imageFile.Name), false);
                     }
+  
+                    File.Copy(imageFile.FullName, Path.Combine(OutputPath, imageType, imageFile.Name), false);
+                    
 
                     //在对应的字典键添加计数
                     if (ImageTypeCount.ContainsKey(imageType))
@@ -270,25 +292,76 @@ namespace ImageClassification
                     {
                         ImageTypeCount.Add(imageType, 1);
                     }
+                    
+                    //判断是否终止分类
+                    if (worker.CancellationPending)
+                    {
+                        doWorkEvent.Cancel= true;
+                        break;
+                    }
+                    else
+                    {
+                        //反馈当前分类进度
+                        worker.ReportProgress((int)(((float)(i + 1)/ imageFileList.Count) * 100));
+                    }
 
-                    //实际这个进度条要多线程才能生效
-                    //MessageBox.Show(progressBar.Value.ToString());
-                    progressBar.Value = ((float)i+1 / (float)fileList.Count) * 100;
                 }
 
                 //输出分类结果
-                StringBuilder  OverMeassage= new StringBuilder($"共计{fileList.Count}张图片\n已输出到{OutputPath}目录下，其中:");
+                StringBuilder  OverMeassage= new StringBuilder($"共计{imageFileList.Count}张图片\n已输出到{OutputPath}目录下，其中:");
                 foreach(string type in ImageTypeCount.Keys)
                 {
                     OverMeassage.Append($"\n{type}:{ImageTypeCount[type]}条");
                 }
+
+                //如果目录下有其他文件也输出一下
+                if(otherDirList.Count > 0)
+                {
+                    OverMeassage.Append($"\n目录下子文件夹:{otherDirList.Count}个\n(只识别所选文件夹下的图片,不包括子文件夹)");
+                    if (copyOtherFile)
+                    {
+                        if (!Directory.Exists(Path.Combine(OutputPath, "未识别文件")))
+                        {
+                            Directory.CreateDirectory(Path.Combine(OutputPath, "未识别文件"));
+                        }
+                        foreach (DirectoryInfo dir in otherDirList)
+                        {
+                            CopyFolder(dir.FullName, Path.Combine(OutputPath, "未识别文件", dir.Name));
+                        }
+                    }                                     
+                }
+                if(otherFileList.Count > 0)
+                {
+                    if (copyOtherFile)
+                    {
+                        if (!Directory.Exists(Path.Combine(OutputPath, "未识别文件")))
+                        {
+                            Directory.CreateDirectory(Path.Combine(OutputPath, "未识别文件"));
+                        }
+                        foreach (FileInfo file in otherFileList)
+                        {
+                            File.Copy(file.FullName, Path.Combine(OutputPath, "未识别文件", file.Name));
+                        }
+                    }                   
+                    OverMeassage.Append($"\n未识别文件:{otherFileList.Count}个\n(部分格式的图片无法识别,例如gif和webp)");
+                }             
+                
                 //完成后弹窗提示
                 MessageBox.Show(OverMeassage.ToString());
             }
             catch (Exception ex)
-            {
-                MessageBox.Show("分类发生错误:\n" + ex.Message);
+            {               
+                if(ex is IOException)
+                {
+                    MessageBox.Show("分类发生错误:\n" + ex.Message+"\n可能是分类结果输出目录下已经有同名图片");
+                }
+                else
+                {
+                    MessageBox.Show("分类发生错误:\n" + ex.Message);
+                }
+                
             }
+            
         }
 
         /// <summary>
@@ -306,7 +379,7 @@ namespace ImageClassification
             //创建机器学习上下文
             MLContext mLContext = new MLContext(seed: seed);
             //获取csv数据集(图片tag和路径),因为用,分隔，所以文件名不能有半角逗号
-            var fullData = mLContext.Data.LoadFromTextFile<ImageNetData>(path: trainTagPath, separatorChar: fileSplit, hasHeader: false);
+            var fullData = mLContext.Data.LoadFromTextFile<ImageNetData>(path: trainTagPath, separatorChar: fileSplit, hasHeader: false);            
             //随机划分训练集和测试集
             var trainTestData = mLContext.Data.TrainTestSplit(fullData, testFraction: 0.1);
             var trainData = trainTestData.TrainSet;
@@ -331,7 +404,6 @@ namespace ImageClassification
                 .AppendCacheCheckpoint(mLContext);
 
             //使用该管道训练模型
-            MessageBox.Show("开始训练模型");
             try
             {
                 ITransformer model = pipeline.Fit(trainData);
@@ -356,6 +428,7 @@ namespace ImageClassification
         }
 
         #endregion
+
 
         #region ——自动模型训练函数——
         ///// <summary>
@@ -431,6 +504,47 @@ namespace ImageClassification
         //    }
         //}
 
+        #endregion
+
+
+        #region ——辅助方法——
+        /// <summary>
+        /// 复制文件夹
+        /// </summary>
+        /// <param name="srcPath">原文件夹路径</param>
+        /// <param name="dstPath">目标文件夹路径</param>
+        /// <returns></returns>
+        public static void CopyFolder(string srcPath, string dstPath)
+        {
+            try
+            {
+                if(!Directory.Exists(dstPath))
+                {
+                    Directory.CreateDirectory(dstPath);
+                }
+                //获取文件路径
+                string[] files = Directory.GetFiles(srcPath);
+                foreach (string file in files)
+                {
+                    string name = Path.GetFileName(file);
+                    string dest = Path.Combine(dstPath, name);
+                    File.Copy(file, dest);//复制文件
+                }
+                //获取文件夹路径
+                string[] folders =Directory.GetDirectories(srcPath);
+                //递归复制文件夹中的文件
+                foreach (string folder in folders)
+                {
+                    string name = Path.GetFileName(folder);
+                    string dest = Path.Combine(dstPath, name);
+                    CopyFolder(folder, dest);
+                }
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show($"复制文件夹过程中发生{e.Message}异常");
+            }
+        }
         #endregion
     }
 

@@ -6,44 +6,45 @@
         xmlns:local="clr-namespace:ImageClassification"
         mc:Ignorable="d"
         WindowStartupLocation="CenterOwner"
-        Title="TrainWindow" Height="520" Width="830">
+        Title="训练模型" Height="465" Width="800">
     <Grid>
-        <Image x:Name="ImageShow" HorizontalAlignment="Left" Height="316" Margin="38,43,0,0" VerticalAlignment="Top" Width="468"/>
+        <Rectangle HorizontalAlignment="Left" Height="343" Margin="129,43,0,0" Stroke="#FFF0F0F0" VerticalAlignment="Top" Width="460" Fill="#FFEBEBEB"/>
+        <Image x:Name="ImageShow" HorizontalAlignment="Left" Height="305" Margin="129,64,0,0" VerticalAlignment="Top" Width="460" OpacityMask="Black"/>
 
-        <Label x:Name="InputPath" Content="(图片文件夹输入路径)"   HorizontalAlignment="Left" Margin="89,10,0,0" VerticalAlignment="Top" Height="30" Width="469" FontSize="14"/>
-        <Button x:Name="ImageInputPath" Content="输入路径" Click="ImageInputPath_Click"  HorizontalAlignment="Left" Margin="10,15,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="25" Width="60"/>
+        <Label x:Name="InputPath" Content="(用于训练的图片文件夹路径)"   HorizontalAlignment="Left" Margin="89,10,0,0" VerticalAlignment="Top" Height="30" Width="469" FontSize="14"/>
+        <Button x:Name="ImageInputPath" Content="选择输入路径" Click="ImageInputPath_Click"  HorizontalAlignment="Left" Margin="10,13,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="25" Width="79"/>
 
-        <Label x:Name="OutputPath" Content="(模型训练结果输出路径)"   HorizontalAlignment="Left" Margin="85,444,0,0" VerticalAlignment="Top" Height="30" Width="547" FontSize="14"/>
-        <Button x:Name="ImageOutputPath" Content="输出路径" Click="ImageOutputPath_Click"  HorizontalAlignment="Left" Margin="10,446,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="25" Width="60"/>
+        <Label x:Name="OutputPath" Content="(模型训练结果保存路径)"   HorizontalAlignment="Left" Margin="95,396,0,0" VerticalAlignment="Top" Height="30" Width="493" FontSize="14"/>
+        <Button x:Name="ImageOutputPath" Content="选择保存路径" Click="ImageOutputPath_Click"  HorizontalAlignment="Left" Margin="14,398,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="24" Width="84"/>
 
-        <Button x:Name="TagAdd" Click="TagAdd_Click" Content="添加Tag" HorizontalAlignment="Left" Margin="656,7,0,0" VerticalAlignment="Top" Height="22"/>
-        <TextBox x:Name="TagInput" HorizontalAlignment="Left" Margin="713,8,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="87" Height="19"/>
+        <Button x:Name="TagAdd" Click="TagAdd_Click" Content="添加标签" HorizontalAlignment="Left" Margin="730,19,0,0" VerticalAlignment="Top" Height="22"/>
+        <TextBox x:Name="TagInput" HorizontalAlignment="Left" Margin="624,20,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="100" Height="20"/>
 
-        <Button x:Name="ModelSave" Click="ModelSave_Click"  Content="训练和保存模型" HorizontalAlignment="Left" Margin="280,407,0,0" VerticalAlignment="Top" Width="89" Height="23"/>
-        <TextBox x:Name="ModelName" Text="模型名称" HorizontalAlignment="Left" Margin="374,409,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="113" Height="21"/>
+        <Button x:Name="ModelSave" Click="ModelSave_Click"  Content="训练模型" HorizontalAlignment="Left" Margin="722,396,0,0" VerticalAlignment="Top" Width="57" Height="24"/>
+        <TextBox x:Name="ModelName" Text="模型名称" HorizontalAlignment="Left" Margin="626,398,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="88" Height="21"/>
 
-        <!--<Label x:Name="CsvName" Content="未检测到标签csv文件"   HorizontalAlignment="Left" Margin="647,3,0,0" VerticalAlignment="Top" Height="25" Width="127" FontSize="14"/>-->
         <!--<Button x:Name="OpenCsv" Content="打开标签文件" Click="OpenCsv_Click"  HorizontalAlignment="Left" Margin="578,3,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.159,0.123" Height="26" Width="78"/>-->
 
-        <Button x:Name="AutoTrain"  Click="AutoTrain_Click" Content="自动训练" HorizontalAlignment="Left" Margin="655,450,0,0" VerticalAlignment="Top"/>
-        <TextBox x:Name="TrainTime" HorizontalAlignment="Left" Text="最大训练时间" Margin="713,450,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="87"/>
+        <!--<Button x:Name="AutoTrain"  Click="AutoTrain_Click" Content="自动训练" HorizontalAlignment="Left" Margin="655,450,0,0" VerticalAlignment="Top"/>
+        <TextBox x:Name="TrainTime" HorizontalAlignment="Left" Text="最大训练时间" Margin="713,450,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="87"/>-->
 
 
-        <ListBox x:Name="TagListBox" Margin="656,43,0,129" >
+        <ListBox x:Name="TagListBox" Margin="624,54,13,155" />
+        <Label x:Name="Count" Content="0/0" HorizontalAlignment="Left" Margin="28,160,0,0" VerticalAlignment="Top" Width="70"/>
 
-        </ListBox>
-        <Label x:Name="Count" Content="0/0" HorizontalAlignment="Left" Margin="548,237,0,0" VerticalAlignment="Top" Width="70"/>
+        <Button x:Name="ImageSetting" Click="ImageSetting_Click" Content="图像预处理设置" HorizontalAlignment="Left" Margin="10,55,0,0" VerticalAlignment="Top" Height="23" Width="98"/>
+        <Button x:Name="ImportImages" Click="ImportImages_Click"  Content="批量设置标签" HorizontalAlignment="Left" Margin="658,342,0,0" VerticalAlignment="Top" Height="25" Width="82"/>
+        <Button x:Name="UndoButton" Click="UndoButton_Click" Content="撤销最后一条标签" HorizontalAlignment="Left" Margin="10,315,0,0" VerticalAlignment="Top" Height="25" Width="100"/>
+        <Button x:Name="ClearButton" Click="ClearButton_Click" Content="清空标签栏" HorizontalAlignment="Left" Margin="658,302,0,0" VerticalAlignment="Top" Height="25" Width="79"/>
 
-        <Button x:Name="ImageSetting" Click="ImageSetting_Click" Content="图像预处理设置" HorizontalAlignment="Left" Margin="10,408,0,0" VerticalAlignment="Top" Height="23" Width="98"/>
-        <Button x:Name="ImportImages" Click="ImportImages_Click"  Content="批量设置标签" HorizontalAlignment="Left" Margin="146,408,0,0" VerticalAlignment="Top" Height="22" Width="98"/>
-        <Button x:Name="UndoButton" Click="UndoButton_Click" Content="撤销上一次标记" HorizontalAlignment="Left" Margin="656,386,0,0" VerticalAlignment="Top" Height="33" Width="135"/>
-
-        <Button x:Name="SwitchByIndex" Click="SwitchByIndex_Click" Content="根据序号跳转" HorizontalAlignment="Left" Margin="542,317,0,0" VerticalAlignment="Top"/>
-        <TextBox x:Name="IndexInput" HorizontalAlignment="Left" Margin="542,284,0,0" TextWrapping="Wrap" Text="图片序号" VerticalAlignment="Top" Width="72"/>
-        <TextBlock x:Name="ImageTagTextBlock" HorizontalAlignment="Left" Margin="40,377,0,0" TextWrapping="Wrap" Text="标签信息" VerticalAlignment="Top" Height="18" Width="309"/>
-        <Label Content="当前图片序号" HorizontalAlignment="Left" Margin="542,212,0,0" VerticalAlignment="Top"/>
-        <Button x:Name="PastImageButton" Click="PastImageButton_Click" Content="上一张" HorizontalAlignment="Left" Margin="548,190,0,0" VerticalAlignment="Top"/>
-        <Button x:Name="NextImageButton" Click="NextImageButton_Click"  Content="下一张" HorizontalAlignment="Left" Margin="600,190,0,0" VerticalAlignment="Top"/>
-        <CheckBox x:Name="isUpdateTag" Checked="isUpdateTag_Checked" IsChecked="True" Content="覆盖已有标记" HorizontalAlignment="Left" Margin="542,362,0,0" VerticalAlignment="Top"/>
+        <Button x:Name="SwitchByIndex" Click="SwitchByIndex_Click" Content="根据序号跳转" HorizontalAlignment="Left" Margin="25,259,0,0" VerticalAlignment="Top" Width="79"/>
+        <TextBox x:Name="IndexInput" HorizontalAlignment="Left" Margin="25,226,0,0" TextWrapping="Wrap" Text="图片序号" VerticalAlignment="Top" Width="75"/>
+        <TextBlock x:Name="ImageTagTextBlock" HorizontalAlignment="Left" Margin="129,44,0,0" TextWrapping="Wrap" Text="标签信息" VerticalAlignment="Top" Height="17" Width="460" TextAlignment="Center"/>
+        <TextBlock x:Name="ImagePathTextBlock" HorizontalAlignment="Left" Margin="129,369,0,0" TextWrapping="Wrap" Text="路径信息" VerticalAlignment="Top" Height="17" Width="460"/>
+        <Label Content="当前图片序号" HorizontalAlignment="Left" Margin="22,135,0,0" VerticalAlignment="Top"/>
+        <Button x:Name="PastImageButton" Click="PastImageButton_Click" Content="上一张" HorizontalAlignment="Left" Margin="18,188,0,0" VerticalAlignment="Top"/>
+        <Button x:Name="NextImageButton" Click="NextImageButton_Click"  Content="下一张" HorizontalAlignment="Left" Margin="70,188,0,0" VerticalAlignment="Top"/>
+        <CheckBox x:Name="IsUpdateTag"  Click="isUpdateTag_Checked" IsChecked="True" Content="覆盖已有标签" HorizontalAlignment="Left" Margin="13,96,0,0" VerticalAlignment="Top"/>
+        <TextBlock x:Name="TrainState" HorizontalAlignment="Left" Margin="626,374,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Height="17" Width="153"/>
     </Grid>
 </Window>

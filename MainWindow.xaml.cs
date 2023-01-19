@@ -1,6 +1,12 @@
 ﻿using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Forms;
+using System.Windows.Threading;
 
 namespace ImageClassification
 {
@@ -8,13 +14,15 @@ namespace ImageClassification
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
-    {
+    { 
         //图片输入路径
         protected string? ImageInputDirPath;
         //分类结果输出路径
         protected string? ClassificatedOutputDirPath;
         //分类模型路径
         protected string? ClassificatModelPath;
+        //多线程
+        private BackgroundWorker backgroundWorker;
 
         /// <summary>
         /// 窗口初始化
@@ -22,12 +30,19 @@ namespace ImageClassification
         public MainWindow()
         {
             InitializeComponent();
+
+            backgroundWorker = (BackgroundWorker)this.FindResource("backgroundWorker");
         }
 
         #region ——控件事件——
         //图片分类
         private void Button_Click(object sender, RoutedEventArgs e)
         {
+            if (backgroundWorker.IsBusy)
+            {
+                System.Windows.MessageBox.Show("当前已经存在分类任务了");
+                return;
+            }
             switch (OutputMode.SelectedIndex)
             {
                 case 0:
@@ -36,8 +51,8 @@ namespace ImageClassification
                         System.Windows.MessageBox.Show("需要先选择模型/图片输入目录");
                     }
                     else
-                    {
-                        ImageSolution.Classificated(ClassificatModelPath, ImageInputDirPath,ImageShow,ref RunProgressBar);
+                    {                       
+                        ClassifyAndShowBox();
                     }
                     break;
 
@@ -48,7 +63,12 @@ namespace ImageClassification
                     }
                     else
                     {
-                        ImageSolution.Classificated(ClassificatModelPath, ImageInputDirPath, ClassificatedOutputDirPath,ref RunProgressBar);
+                        ClassifyArgument classifyArgument = new ClassifyArgument(
+                            ClassificatModelPath,
+                            ImageInputDirPath,
+                            ClassificatedOutputDirPath,
+                            OutOtherFile.IsChecked.Value);
+                        backgroundWorker.RunWorkerAsync(classifyArgument);
                     }
                     break;
             }
@@ -68,7 +88,9 @@ namespace ImageClassification
             {
                 InputPath.Content = SelectPathDialog.SelectedPath;
                 ImageInputDirPath= SelectPathDialog.SelectedPath;
-                System.Windows.MessageBox.Show("已经载入图片");
+               
+                System.Windows.MessageBox.Show($"已载入目录下{Directory.GetFiles(SelectPathDialog.SelectedPath).Length}个文件");
+                RunProgressBar.Value = 0;
             }
         }
 
@@ -117,5 +139,67 @@ namespace ImageClassification
         }
 
         #endregion
+
+
+        private void ClassifyAndShowBox()
+        {
+            ImageSolution.Classificated(ClassificatModelPath, ImageInputDirPath, ImageShow, ref RunProgressBar);           
+        }
+
+        public struct ClassifyArgument
+        {
+            public string ClassificatModelPath;
+            public string ImageInputDirPath;
+            public string ClassificatedOutputDirPath;
+            public bool isOutOtherFile;
+
+            public ClassifyArgument(string classificatModelPath, string imageInputDirPath, string classificatedOutputDirPath, bool isOutOtherFile)
+            {
+                ClassificatModelPath = classificatModelPath;
+                ImageInputDirPath = imageInputDirPath;
+                ClassificatedOutputDirPath = classificatedOutputDirPath;
+                this.isOutOtherFile = isOutOtherFile;
+            }
+        }
+
+        private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            BackgroundWorker worker = sender as BackgroundWorker;
+
+            ClassifyArgument classifyArgument = (ClassifyArgument)e.Argument;
+
+            ImageSolution.Classificated(
+                classifyArgument.ClassificatModelPath, 
+                classifyArgument.ImageInputDirPath, 
+                classifyArgument.ClassificatedOutputDirPath,
+                worker, 
+                e,
+                classifyArgument.isOutOtherFile);
+        }
+
+        private void BackgroundWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {  
+           RunProgressBar.Value= e.ProgressPercentage;
+        }
+
+        private void BackgroundWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            if(e.Error!= null)
+            {
+                System.Windows.MessageBox.Show($"分类过程中发生了{e.Error}异常");
+            }
+        }
+
+        private void OverClassifity_Click(object sender, RoutedEventArgs e)
+        {
+            if (backgroundWorker.WorkerSupportsCancellation&&backgroundWorker.IsBusy)
+            {
+                backgroundWorker.CancelAsync();
+            }
+            else
+            {
+                System.Windows.MessageBox.Show("没有可以终止的分类任务");
+            }
+        }
     }
 }
