@@ -96,9 +96,11 @@ namespace ImageClassification.Dialog
                     imageFileList.AddRange(directoryInfo.GetFiles("*.jpeg"));
                     imageFileList.AddRange(directoryInfo.GetFiles("*.png"));
                     imageFileList.AddRange(directoryInfo.GetFiles("*.bmp"));
-                   
+
+                    //在控件中显示路径
+                    ImageDirLabel.Content = directoryInfo.FullName;
                     //添加文件到图片展示控件显示
-                    for(int i = 0; i < Math.Min(imageFileList.Count, imageShowList.Count); i++)
+                    for (int i = 0; i < Math.Min(imageFileList.Count, imageShowList.Count); i++)
                     {
                         BitmapImage bitmapImage= new BitmapImage();
                         bitmapImage.BeginInit();

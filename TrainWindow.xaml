@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ImageClassification"
         mc:Ignorable="d"
-        WindowStartupLocation="CenterOwner"
+        WindowStartupLocation="CenterScreen"
         Title="训练模型" Height="465" Width="800">
     <Grid>
         <Rectangle HorizontalAlignment="Left" Height="343" Margin="129,43,0,0" Stroke="#FFF0F0F0" VerticalAlignment="Top" Width="460" Fill="#FFEBEBEB"/>
