@@ -15,15 +15,12 @@
 选择一些图片，通过单独或批量的方式进行标记，作为训练集训练得到分类模型。
 
 
-
 # 运行需求
 
 Windows 7及以上操作系统
 
 
-
 # 具体操作
-
 
 
 ## 分类界面
@@ -48,7 +45,6 @@ Windows 7及以上操作系统
 <img title="" src="Example/UseTrainWindow.png" alt="" data-align="inline">
 
 
-
 # 开发环境
 
 Visual Studio 2022
@@ -70,7 +66,6 @@ Microsoft.ML.ImageAnalytics 2.0.0
 Microsoft.ML.TensorFlow 2.0.0
 
 Microsoft.ML.TensorFlow.Redist 0.14.0
-
 
 
 # 参考
